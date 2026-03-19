@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
 import { JobQueue } from "@/core/jobs/client";
 import { processEnrichmentJob } from "@/core/imports/exports/pipeline";
+import { processInstagramMemoriesJob } from "@/core/jobs/memoryWorker";
 
 export const dynamic = "force-dynamic"; // Ensure this isn't cached
 
 export async function GET() {
   try {
-    // Poll for the next job (try ingestion first, then enrichment)
+    // Poll for the next job (try ingestion first, then enrichment, then instagram)
     let job = await JobQueue.poll("ingest_export");
     
     if (!job) {
       job = await JobQueue.poll("enrich_ai");
+    }
+
+    if (!job) {
+      job = await JobQueue.poll("process_instagram_memories");
     }
     
     if (!job) {
@@ -21,13 +26,19 @@ export async function GET() {
 
     if (job.type === "enrich_ai") {
       await processEnrichmentJob(job);
+    } else if (job.type === "process_instagram_memories") {
+      await processInstagramMemoriesJob(job);
     } else {
       // Logic for ingest_export would go here if processIngestJob existed
-      // For now, we'll just complete it or mark as failed if unknown
       console.warn(`Unhandled job type: ${job.type}`);
     }
 
-    await JobQueue.complete(job._id!.toString());
+    // Note: JobQueue.complete is called inside processInstagramMemoriesJob for that type,
+    // but enrich_ai might still need it here if not handled inside.
+    // To be safe and consistent with existing code:
+    if (job.type !== "process_instagram_memories") {
+      await JobQueue.complete(job._id!.toString());
+    }
 
     return NextResponse.json({ 
       status: "success", 

@@ -14,6 +14,7 @@ export const JobTypeSchema = z.enum([
   "enrich_ai",     // Run AI summary/tags
   "index_search",  // Update search index
   "generate_thumbnails",
+  "process_instagram_memories",
 ]);
 
 export const JobSchema = z.object({

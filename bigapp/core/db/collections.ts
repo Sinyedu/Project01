@@ -11,6 +11,7 @@ import { NormalizedRecord, NormalizedRecordSchema } from "@/core/schema/record";
 import { SourceConnection, SourceConnectionSchema } from "@/core/schema/source";
 import { RawSnapshot, MediaAsset, NormalizedProfile } from "@/core/schema/ingest";
 import { Moment, MomentMembership, AIEnrichment } from "@/core/moments/schema";
+import { MemoryBundle, MemoryBundleSchema } from "@/core/schema/memoryBundle";
 
 // Legacy collections (keep until fully migrated)
 export async function archives(): Promise<Collection<ArchiveItem>> {
@@ -53,6 +54,10 @@ export async function profiles(): Promise<Collection<NormalizedProfile>> {
 
 export async function mediaAssets(): Promise<Collection<MediaAsset>> {
   return (await getDb()).collection<MediaAsset>("media_assets");
+}
+
+export async function memoryBundles(): Promise<Collection<MemoryBundle>> {
+  return (await getDb()).collection<MemoryBundle>("memory_bundles");
 }
 
 // Moment Engine collections

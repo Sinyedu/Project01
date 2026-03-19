@@ -10,6 +10,7 @@ export interface AIEnrichmentResult {
 export interface AIService {
   generateEmbedding(text: string): Promise<number[]>;
   enrichText(text: string): Promise<AIEnrichmentResult>;
+  generateTitleForImage(imageBuffer: Buffer, mimeType: string, date: string): Promise<string>;
 }
 
 export class GeminiAIService implements AIService {
@@ -17,6 +18,28 @@ export class GeminiAIService implements AIService {
 
   constructor() {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+  }
+
+  async generateTitleForImage(imageBuffer: Buffer, mimeType: string, date: string): Promise<string> {
+    try {
+      const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const prompt = `This is a photo from ${date}. Give this memory a short, warm, descriptive title in 4-6 words. Examples: 'Summer beach day with friends', 'Rainy city afternoon walk'. Respond with only the title, no quotes, no extra text.`;
+
+      const result = await model.generateContent([
+        prompt,
+        {
+          inlineData: {
+            data: imageBuffer.toString("base64"),
+            mimeType,
+          },
+        },
+      ]);
+
+      return result.response.text().trim().replace(/^"(.*)"$/, "$1");
+    } catch (error) {
+      console.error("Failed to generate title for image:", error);
+      return `Memory from ${date}`;
+    }
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
