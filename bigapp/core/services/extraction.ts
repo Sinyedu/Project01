@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import AdmZip from "adm-zip";
 import { connections, snapshots, records } from "@/core/db";
 import { getConnector } from "@/core/connectors/registry";
+import { aiService } from "@/core/ai/service";
 import type { SnapshotJob, NormalizedRecord } from "@/core/types";
 
 function isZip(buf: Buffer): boolean {
@@ -72,21 +73,42 @@ export async function processUpload(
       { $set: { phase: "normalizing", "progress.totalItems": parsed.length } },
     );
 
-    // Build full normalized records with provenance
-    const normalized: NormalizedRecord[] = parsed.map((p) => ({
-      userId,
-      snapshotId: jobId,
-      connectionId,
-      source: conn.source,
-      kind: p.kind,
-      sourceId: p.sourceId,
-      sourceTimestamp: p.sourceTimestamp,
-      data: p.data,
-      mediaRefs: p.mediaRefs,
-      checksum: checksum(p.data),
-      importMethod: conn.mode,
-      createdAt: now,
-    }));
+    // Build full normalized records with AI enrichment
+    // Limit AI processing to first 50 items for speed/cost safety in this turn
+    const normalized: NormalizedRecord[] = [];
+    for (let i = 0; i < parsed.length; i++) {
+      const p = parsed[i];
+      const textForAI = p.data.text || p.data.title || p.data.body || "";
+      
+      let tags: string[] = [];
+      let embedding: number[] | undefined;
+
+      if (textForAI && i < 50) {
+        const [enrich, embed] = await Promise.all([
+          aiService.enrichText(String(textForAI)),
+          aiService.generateEmbedding(String(textForAI))
+        ]);
+        tags = enrich.tags;
+        embedding = embed;
+      }
+
+      normalized.push({
+        userId,
+        snapshotId: jobId,
+        connectionId,
+        source: conn.source,
+        kind: p.kind,
+        sourceId: p.sourceId,
+        sourceTimestamp: p.sourceTimestamp,
+        data: p.data,
+        mediaRefs: p.mediaRefs,
+        checksum: checksum(p.data),
+        tags,
+        embedding,
+        importMethod: conn.mode,
+        createdAt: now,
+      });
+    }
 
     // Bulk insert (skip duplicates via ordered: false)
     if (normalized.length > 0) {

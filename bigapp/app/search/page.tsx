@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Platform } from "@/core/schema/source";
 
 interface SearchResult {
-  records: any[];
+  results: any[];
   total: number;
 }
 
@@ -74,7 +74,7 @@ export default function SearchPage() {
           <div className="space-y-6">
             <p className="text-neutral-500">Found {results.total} results</p>
             <div className="grid gap-4">
-              {results.records.map((record: any) => (
+              {results.results.map((record: any) => (
                 <div key={record._id} className="bg-white p-6 rounded-xl shadow-sm border border-neutral-100 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-4">
                     <span className="px-3 py-1 bg-neutral-100 text-neutral-600 rounded-full text-xs font-medium uppercase tracking-wider">
@@ -86,8 +86,25 @@ export default function SearchPage() {
                   </div>
                   
                   <div className="space-y-4">
-                    {record.data.text && (
-                      <p className="text-lg text-neutral-800 leading-relaxed">{record.data.text}</p>
+                    {record.title && (
+                      <h3 className="text-lg font-bold text-neutral-900">{record.title}</h3>
+                    )}
+                    
+                    {(record.textContent || record.data?.text) && (
+                      <p className="text-lg text-neutral-800 leading-relaxed">
+                        {record.textContent || record.data?.text}
+                      </p>
+                    )}
+
+                    {record.sourceUrl && (
+                      <a 
+                        href={record.sourceUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-500 hover:underline"
+                      >
+                        View Original Source
+                      </a>
                     )}
                     
                     {record.mediaRefs && record.mediaRefs.length > 0 && (

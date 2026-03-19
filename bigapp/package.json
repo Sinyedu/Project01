@@ -10,12 +10,14 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.0.5",
+    "@google/generative-ai": "^0.24.1",
     "@tanstack/react-query": "^5.91.0",
     "adm-zip": "^0.5.16",
     "cloudinary": "^2.9.0",
     "dotenv": "^17.3.1",
     "mongodb": "^7.1.0",
     "next": "16.2.0",
+    "openai": "^6.32.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "yauzl": "^3.2.1"

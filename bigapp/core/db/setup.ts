@@ -45,6 +45,23 @@ export async function setupIndexes() {
     { key: { checksum: 1 } },
   ]);
 
+  /**
+   * NOTE: Atlas Vector Search index must be created via Atlas UI or API.
+   * Name: vector_index
+   * Definition:
+   * {
+   *   "mappings": {
+   *     "dynamic": true,
+   *     "fields": {
+   *       "embedding": {
+   *         "type": "knnVector",
+   *         "dimensions": 768,
+   *         "similarity": "cosine"
+   *       }
+   *     }
+   *   }
+   * }
+   */
   console.log("Indexes created.");
 }
 

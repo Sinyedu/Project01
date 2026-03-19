@@ -91,6 +91,8 @@ export interface NormalizedRecord {
   data: Record<string, unknown>;
   mediaRefs: string[];
   checksum: string;
+  tags: string[];
+  embedding?: number[];
   importMethod: ConnectorMode;
   createdAt: Date;
 }

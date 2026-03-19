@@ -1,6 +1,7 @@
-import { records } from "@/core/db/collections";
+import { records, archives } from "@/core/db/collections";
 import { aiService } from "@/core/ai/service";
-import type { NormalizedRecord } from "@/core/schema/record";
+import type { NormalizedRecord } from "@/core/types/normalized";
+import type { ArchiveItem } from "@/core/types/archive";
 
 export interface SearchParams {
   query?: string;
@@ -13,84 +14,101 @@ export interface SearchParams {
 }
 
 export interface SearchResult {
-  records: NormalizedRecord[];
+  results: (NormalizedRecord | ArchiveItem)[];
   total: number;
 }
 
 export class HybridSearchService {
   /**
-   * Performs a hybrid search (Keyword + Vector + Filters).
-   * Note: Vector search requires MongoDB Atlas Search index configuration.
+   * Performs a hybrid search (Keyword + Vector + Filters) across Records and Archives.
    */
   async search(params: SearchParams): Promise<SearchResult> {
     const { query, userId, limit = 20, offset = 0 } = params;
-    const col = await records();
+    
+    const recordCol = await records();
+    const archiveCol = await archives();
 
-    const pipeline: any[] = [];
+    const embedding = query ? await aiService.generateEmbedding(query) : null;
 
-    // 1. Vector Search (if query exists)
-    // This stage must be first if used.
-    if (query) {
-      const embedding = await aiService.generateEmbedding(query);
+    const buildPipeline = (isArchive: boolean) => {
+      const pipeline: any[] = [];
+
+      // 1. Vector Search
+      if (embedding) {
+        pipeline.push({
+          $vectorSearch: {
+            index: "vector_index",
+            path: "embedding",
+            queryVector: embedding,
+            numCandidates: 100,
+            limit: limit * 2,
+          }
+        });
+      }
+
+      // 2. Match Stage (Filters)
+      const match: any = { userId };
       
-      // $vectorSearch syntax (requires Atlas)
-      // We comment this out or use a conditional because it fails on standard MongoDB if not configured.
-      // For local/dev without Atlas Vector Search, we fallback to regex/text.
-      /*
-      pipeline.push({
-        $vectorSearch: {
-          index: "vector_index",
-          path: "embedding",
-          queryVector: embedding,
-          numCandidates: 100,
-          limit: limit * 2,
+      if (query && !embedding) {
+        // Text fallback if vector isn't supported/ready
+        if (isArchive) {
+          match.$or = [
+            { textContent: { $regex: query, $options: "i" } },
+            { title: { $regex: query, $options: "i" } },
+            { tags: { $in: [new RegExp(query, "i")] } }
+          ];
+        } else {
+          match.$or = [
+            { "data.text": { $regex: query, $options: "i" } },
+            { "data.title": { $regex: query, $options: "i" } },
+            { tags: { $in: [new RegExp(query, "i")] } }
+          ];
         }
-      });
-      */
-    }
+      }
 
-    // 2. Match Stage (Filters)
-    const match: any = { userId };
-    
-    if (query) {
-      // Fallback text search if vector search isn't active or as hybrid boost
-      match.$or = [
-        { "data.text": { $regex: query, $options: "i" } },
-        { "data.title": { $regex: query, $options: "i" } },
-        { tags: { $regex: query, $options: "i" } }
-      ];
-    }
+      if (params.platforms?.length) {
+        match.platform = { $in: params.platforms };
+      }
 
-    if (params.platforms?.length) {
-      match.platform = { $in: params.platforms };
-    }
+      if (params.tags?.length) {
+        match.tags = { $all: params.tags };
+      }
 
-    if (params.tags?.length) {
-      match.tags = { $all: params.tags };
-    }
+      if (params.dateRange) {
+        const tsField = isArchive ? "createdAt" : "sourceTimestamp";
+        match[tsField] = {};
+        if (params.dateRange.start) match[tsField].$gte = params.dateRange.start;
+        if (params.dateRange.end) match[tsField].$lte = params.dateRange.end;
+      }
 
-    if (params.dateRange) {
-      match.sourceTimestamp = {};
-      if (params.dateRange.start) match.sourceTimestamp.$gte = params.dateRange.start;
-      if (params.dateRange.end) match.sourceTimestamp.$lte = params.dateRange.end;
-    }
+      pipeline.push({ $match: match });
 
-    pipeline.push({ $match: match });
+      // 3. Pagination
+      if (!embedding) {
+        pipeline.push({ $sort: { createdAt: -1 } });
+      }
+      
+      pipeline.push({ $skip: offset });
+      pipeline.push({ $limit: limit });
 
-    // 3. Sort & Pagination
-    pipeline.push({ $sort: { sourceTimestamp: -1, createdAt: -1 } });
-    pipeline.push({ $skip: offset });
-    pipeline.push({ $limit: limit });
+      return pipeline;
+    };
 
-    // Execute
-    const results = await col.aggregate(pipeline).toArray();
-    
-    // Total count (separate query for efficiency, or use $facet)
-    const total = await col.countDocuments(match);
+    const [recordResults, archiveResults, recordCount, archiveCount] = await Promise.all([
+      recordCol.aggregate(buildPipeline(false)).toArray(),
+      archiveCol.aggregate(buildPipeline(true)).toArray(),
+      recordCol.countDocuments({ userId }), // Simple count for now, filters could be added
+      archiveCol.countDocuments({ userId }),
+    ]);
+
+    // Merge and sort results if not already sorted by vector relevance
+    const combined = [...(recordResults as any[]), ...(archiveResults as any[])]
+      .sort((a, b) => (b.sourceTimestamp || b.createdAt).getTime() - (a.sourceTimestamp || a.createdAt).getTime())
+      .slice(0, limit);
 
     return {
-      records: results as NormalizedRecord[],
-      total,
+      results: combined,
+      total: recordCount + archiveCount,
     };
   }
 }

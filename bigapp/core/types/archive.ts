@@ -33,6 +33,7 @@ export interface ArchiveItem {
   media: ArchivedMedia[];
   context?: ContextSnapshot;
   contentHash?: string;
+  embedding?: number[];
   sourceAlive: boolean;
   lastVerifiedAt?: Date;
   originalTimestamp?: Date;
