@@ -27,6 +27,14 @@ export function Navbar() {
           >
             Capture
           </a>
+          <Show when="signed-in">
+            <a
+              href="/dashboard"
+              className="text-sm text-muted transition-colors hover:text-foreground"
+            >
+              Dashboard
+            </a>
+          </Show>
 
           <div className="ml-4 flex items-center gap-3">
             <Show when="signed-out">
