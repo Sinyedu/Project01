@@ -2,50 +2,38 @@ import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 
 export function Navbar() {
   return (
-    <nav className="animate-slide-down fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-lg">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <a href="/" className="text-lg font-bold tracking-tight">
-          <span className="gradient-text">BigApp</span>
+    <nav className="animate-slide-down fixed inset-x-0 top-0 z-50 border-b border-border/20 bg-background/60 backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+        <a href="/" className="text-sm font-black tracking-tighter uppercase">
+          BigApp
         </a>
 
-        <div className="flex items-center gap-3">
-          <a
-            href="#platforms"
-            className="hidden text-sm text-muted transition-colors hover:text-foreground sm:block"
-          >
-            Platforms
-          </a>
-          <a
-            href="#features"
-            className="hidden text-sm text-muted transition-colors hover:text-foreground sm:block"
-          >
-            Features
-          </a>
-          <a
-            href="#capture"
-            className="hidden text-sm text-muted transition-colors hover:text-foreground sm:block"
-          >
-            Capture
-          </a>
+        <div className="flex items-center gap-6">
           <Show when="signed-in">
             <a
-              href="/dashboard"
-              className="text-sm text-muted transition-colors hover:text-foreground"
+              href="/search"
+              className="text-[10px] font-bold uppercase tracking-widest text-muted transition-colors hover:text-white"
             >
-              Dashboard
+              Search
+            </a>
+            <a
+              href="/dashboard"
+              className="text-[10px] font-bold uppercase tracking-widest text-muted transition-colors hover:text-white"
+            >
+              Vault
             </a>
           </Show>
 
-          <div className="ml-4 flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <Show when="signed-out">
               <SignInButton>
-                <button className="cursor-pointer text-sm text-muted transition-colors hover:text-foreground">
+                <button className="cursor-pointer text-[10px] font-bold uppercase tracking-widest text-muted hover:text-white transition-colors">
                   Sign in
                 </button>
               </SignInButton>
               <SignUpButton>
-                <button className="cursor-pointer rounded-full bg-accent px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-amber-400">
-                  Get started
+                <button className="cursor-pointer rounded-full bg-white px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-black transition-transform hover:scale-105">
+                  Join
                 </button>
               </SignUpButton>
             </Show>
