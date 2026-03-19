@@ -7,4 +7,9 @@ export type {
   MediaType,
   ArchiveItem,
   ArchivedMedia,
+  ContextSnapshot,
+  CaptureFrequency,
+  CaptureJob,
+  CapsuleStatus,
+  TimeCapsule,
 } from "./archive";
