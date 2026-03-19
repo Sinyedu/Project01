@@ -2,8 +2,9 @@ import type { PlatformConnector } from "./types";
 import type { ParseResult } from "@/core/types/normalized";
 import { ContactCollector, decodeMeta, extractFolderIdFromPath, extractFolderHandleFromPath } from "./contacts";
 
-function tryJson(buf: Buffer): unknown[] | null {
+async function tryJson(entry: any): Promise<unknown[] | null> {
   try {
+    const buf = await entry.buffer();
     const parsed = JSON.parse(buf.toString());
     return Array.isArray(parsed) ? parsed : null;
   } catch {
@@ -15,33 +16,38 @@ export const instagramConnector: PlatformConnector = {
   source: "instagram",
   modes: ["export_upload", "portability_push"],
 
-  async *parseExport(files: Map<string, Buffer>) {
+  async *parseExport(files) {
     const contacts = new ContactCollector("ig");
     let recordCount = 0;
 
-    for (const [path, buf] of files.entries()) {
+    for await (const entry of files.entries()) {
+      const path = entry.path;
+      
       // Profile / Account Info
       if (/personal_information\/personal_information\.json$/i.test(path) || /profile\/profile\.json$/i.test(path)) {
-        const data = JSON.parse(buf.toString());
-        const profile = data.profile_user?.[0] || data.profile_v2?.[0] || data;
-        if (profile) {
-          yield {
-            kind: "account",
-            sourceId: `ig-account-${profile.username || "self"}`,
-            data: {
-              username: profile.username,
-              displayName: profile.name || profile.full_name,
-              bio: profile.biography || profile.bio,
-              email: profile.email,
-            },
-            mediaRefs: [],
-          };
-        }
+        try {
+          const buf = await entry.buffer();
+          const data = JSON.parse(buf.toString());
+          const profile = data.profile_user?.[0] || data.profile_v2?.[0] || data;
+          if (profile) {
+            yield {
+              kind: "account",
+              sourceId: `ig-account-${profile.username || "self"}`,
+              data: {
+                username: profile.username,
+                displayName: profile.name || profile.full_name,
+                bio: profile.biography || profile.bio,
+                email: profile.email,
+              },
+              mediaRefs: [],
+            };
+          }
+        } catch { /* ignore */ }
       }
 
       // Posts
       if (/(content|posts)\/posts_\d*\.json$/i.test(path)) {
-        const posts = tryJson(buf);
+        const posts = await tryJson(entry);
         if (!posts) continue;
         for (const post of posts as Record<string, unknown>[]) {
           const media = (post.media as Record<string, unknown>[]) ?? [];
@@ -66,6 +72,7 @@ export const instagramConnector: PlatformConnector = {
       if (/messages\/inbox\/.*\/message_\d*\.json$/i.test(path)) {
         let chat: Record<string, unknown>;
         try {
+          const buf = await entry.buffer();
           chat = JSON.parse(buf.toString());
         } catch {
           continue;

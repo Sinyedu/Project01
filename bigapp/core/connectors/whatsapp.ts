@@ -15,22 +15,22 @@ export const whatsappConnector: PlatformConnector = {
   source: "whatsapp",
   modes: ["export_upload", "local_importer"],
 
-  parseExport(files) {
-    const results: ParseResult[] = [];
+  async *parseExport(files) {
     const contacts = new ContactCollector("wa");
 
-    for (const [path, buf] of files) {
-      if (!path.endsWith(".txt")) continue;
+    for await (const entry of files.entries()) {
+      if (!entry.path.endsWith(".txt")) continue;
 
+      const buf = await entry.buffer();
       const lines = buf.toString().split("\n");
-      const chatTitle = path.replace(/^.*\//, "").replace(/\.txt$/, "");
+      const chatTitle = entry.path.replace(/^.*\//, "").replace(/\.txt$/, "");
 
-      results.push({
+      yield {
         kind: "conversation",
         sourceId: `wa-conv-${chatTitle}`,
         data: { title: chatTitle, participants: [] as string[] },
         mediaRefs: [],
-      });
+      };
 
       const participantKeys: string[] = [];
       let idx = 0;
@@ -53,7 +53,7 @@ export const whatsappConnector: PlatformConnector = {
 
         const isMediaRef = /\(file attached\)|<Media omitted>/i.test(text);
 
-        results.push({
+        yield {
           kind: "message",
           sourceId: `wa-msg-${chatTitle}-${idx++}`,
           sourceTimestamp: ts,
@@ -65,17 +65,12 @@ export const whatsappConnector: PlatformConnector = {
             mediaUrls: [],
           },
           mediaRefs: [],
-        });
-      }
-
-      // Backfill participants with normalized keys
-      const conv = results.find((r) => r.sourceId === `wa-conv-${chatTitle}`);
-      if (conv) {
-        (conv.data as Record<string, unknown>).participants = participantKeys;
+        };
       }
     }
 
-    results.push(...contacts.toRecords());
-    return results;
+    for (const record of contacts.toRecords()) {
+      yield record;
+    }
   },
 };

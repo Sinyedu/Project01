@@ -1,54 +1,30 @@
 import { createHash } from "crypto";
-import AdmZip from "adm-zip";
+import { ObjectId } from "mongodb";
 import { connections, snapshots, records } from "@/core/db";
 import { getConnector } from "@/core/connectors/registry";
 import { aiService } from "@/core/ai/service";
 import { uploadMedia } from "@/core/services/storage";
+import { ZipFileProvider } from "@/core/utils/zip";
+import { JobQueue } from "@/core/jobs/client";
 import type { SnapshotJob, NormalizedRecord } from "@/core/types";
 import type { ParseResult } from "@/core/types/normalized";
-
-function isZip(buf: Buffer): boolean {
-  return buf.length > 4 && buf[0] === 0x50 && buf[1] === 0x4b;
-}
-
-function extractFiles(buf: Buffer | string, fileName: string): Map<string, Buffer> {
-  const files = new Map<string, Buffer>();
-  
-  // AdmZip can take a buffer OR a file path string
-  try {
-    const zip = new AdmZip(buf);
-    for (const entry of zip.getEntries()) {
-      if (entry.isDirectory) continue;
-      files.set(entry.entryName, entry.getData());
-    }
-  } catch (err) {
-    // If not a zip, treat as single file (only if buf is a Buffer)
-    if (Buffer.isBuffer(buf)) {
-      files.set(fileName, buf);
-    } else {
-      throw new Error("Failed to process file as ZIP archive");
-    }
-  }
-  
-  return files;
-}
 
 function checksum(data: Record<string, unknown>): string {
   return createHash("sha256").update(JSON.stringify(data)).digest("hex");
 }
 
 /**
- * Official Export Import Pipeline
- * Flow: upload -> detect -> unpack -> parse -> normalize -> resolve media -> archive
+ * Official Export Import Pipeline - Phase 1: Upload & Parse
+ * Flow: upload -> detect -> unpack -> parse -> normalize -> resolve media (lite) -> store
  */
 export async function importOfficialExport(
   connectionId: string,
   userId: string,
   fileName: string,
-  fileInput: Buffer | string, // Can be buffer or path string
+  fileInput: string,
 ): Promise<SnapshotJob> {
   const connCol = await connections();
-  const conn = await connCol.findOne({ _id: connectionId, userId } as any);
+  const conn = await connCol.findOne({ _id: new ObjectId(connectionId), userId } as any);
   if (!conn) throw new Error("Import source not found");
 
   const snapCol = await snapshots();
@@ -68,54 +44,43 @@ export async function importOfficialExport(
   const jobId = insertedId.toString();
 
   try {
-    const files = extractFiles(fileInput, fileName);
+    const provider = new ZipFileProvider(fileInput);
     const connector = getConnector(conn.platform as any);
-    const parsedRaw = connector.parseExport(files);
+    const parsedRaw = connector.parseExport(provider);
     
-    let parsed: ParseResult[] = [];
-    if (Array.isArray(parsedRaw)) {
-      parsed = parsedRaw;
-    } else if (parsedRaw && Symbol.asyncIterator in (parsedRaw as any)) {
-      for await (const p of (parsedRaw as AsyncGenerator<ParseResult>)) {
-        parsed.push(p);
+    let processedCount = 0;
+    let mediaComplete = 0;
+    let batch: NormalizedRecord[] = [];
+    const BATCH_SIZE = 100;
+
+    const parsedIterable = (async function* () {
+      if (Symbol.asyncIterator in (parsedRaw as any)) {
+        yield* (parsedRaw as AsyncGenerator<ParseResult>);
+      } else {
+        const results = await (parsedRaw as Promise<ParseResult[]> | ParseResult[]);
+        for (const r of results) yield r;
       }
-    } else if (parsedRaw instanceof Promise) {
-      parsed = await parsedRaw;
-    }
+    })();
 
     await snapCol.updateOne(
       { _id: insertedId },
-      { $set: { phase: "normalizing", "progress.totalItems": parsed.length } },
+      { $set: { phase: "processing" } },
     );
 
-    const normalized: NormalizedRecord[] = [];
-    let mediaComplete = 0;
+    const recCol = await records();
 
-    for (let i = 0; i < parsed.length; i++) {
-      const p = parsed[i];
-      const textForAI = p.data.text || p.data.title || p.data.body || "";
+    for await (const p of parsedIterable) {
+      processedCount++;
       
-      let tags: string[] = [];
-      let embedding: number[] | undefined;
-
-      if (textForAI && i < 50) {
-        try {
-          const [enrich, embed] = await Promise.all([
-            aiService.enrichText(String(textForAI)),
-            aiService.generateEmbedding(String(textForAI))
-          ]);
-          tags = enrich.tags;
-          embedding = embed;
-        } catch { /* AI enrichment is optional */ }
-      }
-
       const finalMediaRefs = [...p.mediaRefs];
+      // Still process a few media items inline if they are small/limited
       if (p.mediaRefs.length > 0 && mediaComplete < 20) {
         for (let j = 0; j < p.mediaRefs.length; j++) {
           const ref = p.mediaRefs[j];
-          const buf = files.get(ref);
-          if (buf) {
+          const fileEntry = await provider.get(ref);
+          if (fileEntry) {
             try {
+              const buf = await fileEntry.buffer();
               const archived = await uploadMedia(buf, ref);
               finalMediaRefs[j] = archived.archivedUrl;
             } catch { /* skip failed upload */ }
@@ -124,7 +89,7 @@ export async function importOfficialExport(
         mediaComplete++;
       }
 
-      normalized.push({
+      batch.push({
         userId,
         snapshotId: jobId,
         connectionId,
@@ -139,22 +104,33 @@ export async function importOfficialExport(
         },
         mediaRefs: finalMediaRefs,
         checksum: checksum(p.data),
-        tags,
-        embedding,
+        tags: [], // Phase 2
+        embedding: undefined, // Phase 2
         createdAt: now,
       });
+
+      if (batch.length >= BATCH_SIZE) {
+        try {
+          await recCol.insertMany(batch, { ordered: false });
+        } catch (e: any) {
+          if (e.code !== 11000) throw e;
+        }
+        batch = [];
+        await snapCol.updateOne(
+          { _id: insertedId },
+          { $set: { "progress.processedItems": processedCount, "progress.mediaComplete": mediaComplete } },
+        );
+      }
     }
 
-    if (normalized.length > 0) {
-      const recCol = await records();
+    // Insert remaining
+    if (batch.length > 0) {
       try {
-        await recCol.insertMany(normalized, { ordered: false });
+        await recCol.insertMany(batch, { ordered: false });
       } catch (e: any) {
         if (e.code !== 11000) throw e;
       }
     }
-
-    const mediaCount = parsed.reduce((n: number, p: any) => n + p.mediaRefs.length, 0);
 
     await snapCol.updateOne(
       { _id: insertedId },
@@ -162,17 +138,19 @@ export async function importOfficialExport(
         $set: {
           phase: "complete",
           completedAt: new Date(),
-          "progress.processedItems": parsed.length,
-          "progress.mediaQueued": mediaCount,
+          "progress.processedItems": processedCount,
           "progress.mediaComplete": mediaComplete,
         },
       },
     );
 
     await connCol.updateOne(
-      { _id: connectionId } as any,
+      { _id: new ObjectId(connectionId) } as any,
       { $set: { lastSnapshotAt: new Date(), updatedAt: new Date(), status: "completed" } },
     );
+
+    // Queue Phase 2: AI Enrichment
+    await JobQueue.enqueue("enrich_ai", { snapshotId: jobId }, userId);
 
     return { ...job, _id: jobId, phase: "complete" };
   } catch (err) {
@@ -188,4 +166,72 @@ export async function importOfficialExport(
     );
     throw err;
   }
+}
+
+/**
+ * Phase 2: AI Enrichment Background Job
+ * Processes records for a snapshot in batches to add tags and embeddings.
+ */
+export async function processEnrichmentJob(job: any) {
+  const { snapshotId } = job.payload;
+  const recCol = await records();
+  
+  console.log(`[AI Enrichment] Starting job for snapshot ${snapshotId}`);
+
+  // Find records in this snapshot that haven't been enriched yet
+  const cursor = recCol.find({ 
+    snapshotId, 
+    $or: [
+      { embedding: null },
+      { embedding: { $exists: false } }
+    ]
+  });
+  
+  let batch: any[] = [];
+  const BATCH_SIZE = 10; // Small batches for AI safety
+
+  while (await cursor.hasNext()) {
+    const record = await cursor.next();
+    if (!record) break;
+
+    batch.push(record);
+
+    if (batch.length >= BATCH_SIZE) {
+      await processEnrichmentBatch(batch);
+      batch = [];
+    }
+  }
+
+  // Final batch
+  if (batch.length > 0) {
+    await processEnrichmentBatch(batch);
+  }
+
+  console.log(`[AI Enrichment] Completed job for snapshot ${snapshotId}`);
+}
+
+async function processEnrichmentBatch(batch: any[]) {
+  const recCol = await records();
+
+  await Promise.all(
+    batch.map(async (record) => {
+      const text = record.data.text || record.data.title || record.data.body || "";
+      if (!text) return;
+
+      try {
+        const [enrich, embedding] = await Promise.all([
+          aiService.enrichText(String(text)),
+          aiService.generateEmbedding(String(text))
+        ]);
+
+        await recCol.updateOne(
+          { _id: record._id },
+          { $set: { tags: enrich.tags, embedding } }
+        );
+      } catch (e) {
+        console.warn(`[AI Enrichment] Failed to process record ${record._id}:`, e);
+        // Continue - don't fail the batch
+      }
+    })
+  );
 }

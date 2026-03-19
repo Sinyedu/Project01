@@ -15,7 +15,10 @@ export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const tempFilePath = path.join("/tmp", `upload-${randomUUID()}.zip`);
+  const tempDir = path.join(process.cwd(), ".tmp");
+  if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+  const tempFilePath = path.join(tempDir, `upload-${randomUUID()}.zip`);
+  
   let platform: string | null = null;
   let fileName: string | null = null;
   let bytesReceived = 0;
@@ -77,7 +80,10 @@ export async function POST(req: NextRequest) {
               break;
             }
             if (value) {
-              bb.write(value);
+              const keepWriting = bb.write(value);
+              if (!keepWriting) {
+                await new Promise<void>((resolve) => bb.once('drain', resolve));
+              }
             }
           }
         } catch (err) {
@@ -88,7 +94,6 @@ export async function POST(req: NextRequest) {
     });
 
     if (!platform || !fs.existsSync(tempFilePath)) {
-      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
       return NextResponse.json({ error: "File and platform are required" }, { status: 400 });
     }
 
@@ -116,14 +121,21 @@ export async function POST(req: NextRequest) {
       tempFilePath
     );
 
-    // Cleanup
-    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-    console.log(`[Upload] Complete and cleaned up.`);
+    console.log(`[Upload] Complete.`);
 
     return NextResponse.json(snapshot, { status: 201 });
   } catch (err: any) {
     console.error("[Upload] Fatal error:", err);
-    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
     return NextResponse.json({ error: err.message || "Upload failed" }, { status: 500 });
+  } finally {
+    // Cleanup - ensure we always delete the temp file
+    if (fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+        console.log(`[Upload] Cleaned up temporary file: ${tempFilePath}`);
+      } catch (cleanupErr) {
+        console.error("[Upload] Cleanup error:", cleanupErr);
+      }
+    }
   }
 }

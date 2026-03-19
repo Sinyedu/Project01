@@ -19,21 +19,24 @@ export const xConnector: PlatformConnector = {
   source: "x",
   modes: ["export_upload", "api_pull"],
 
-  parseExport(files) {
-    const results: ParseResult[] = [];
+  async *parseExport(files) {
+    let recordCount = 0;
 
-    for (const [path, buf] of files) {
+    for await (const entry of files.entries()) {
+      const path = entry.path;
+      
       // Tweets: data/tweets.js
       if (/tweets\.js$/i.test(path)) {
+        const buf = await entry.buffer();
         const entries = parseJsonp(buf);
-        for (const entry of entries as Record<string, Record<string, unknown>>[]) {
-          const tweet = entry.tweet;
+        for (const entryObj of entries as Record<string, Record<string, unknown>>[]) {
+          const tweet = entryObj.tweet;
           if (!tweet) continue;
           const mediaEntities =
             ((tweet.extended_entities as Record<string, unknown>)
               ?.media as Record<string, string>[]) ?? [];
 
-          results.push({
+          yield {
             kind: "post",
             sourceId: tweet.id_str as string,
             sourceTimestamp: tweet.created_at
@@ -49,24 +52,25 @@ export const xConnector: PlatformConnector = {
             mediaRefs: mediaEntities
               .map((m) => m.media_url_https)
               .filter(Boolean),
-          });
+          };
         }
       }
 
       // DMs: data/direct-messages.js
       if (/direct-messages\.js$/i.test(path)) {
+        const buf = await entry.buffer();
         const convos = parseJsonp(buf);
-        for (const entry of convos as Record<string, Record<string, unknown>>[]) {
-          const conv = entry.dmConversation;
+        for (const convEntry of convos as Record<string, Record<string, unknown>>[]) {
+          const conv = convEntry.dmConversation;
           if (!conv) continue;
           const convId = conv.conversationId as string;
 
-          results.push({
+          yield {
             kind: "conversation",
             sourceId: convId,
             data: { title: convId, participants: [] },
             mediaRefs: [],
-          });
+          };
 
           for (const msg of (conv.messages as Record<
             string,
@@ -74,9 +78,11 @@ export const xConnector: PlatformConnector = {
           >[]) ?? []) {
             const event = msg.messageCreate;
             if (!event) continue;
-            results.push({
+            
+            recordCount++;
+            yield {
               kind: "message",
-              sourceId: (event.id as string) ?? `x-dm-${results.length}`,
+              sourceId: (event.id as string) ?? `x-dm-${recordCount}`,
               sourceTimestamp: event.createdAt
                 ? new Date(event.createdAt as string)
                 : undefined,
@@ -86,12 +92,10 @@ export const xConnector: PlatformConnector = {
                 text: (event.text as string) ?? "",
               },
               mediaRefs: [],
-            });
+            };
           }
         }
       }
     }
-
-    return results;
   },
 };

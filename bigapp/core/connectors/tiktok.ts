@@ -5,14 +5,15 @@ export const tiktokConnector: PlatformConnector = {
   source: "tiktok",
   modes: ["export_upload", "portability_push"],
 
-  parseExport(files) {
-    const results: ParseResult[] = [];
+  async *parseExport(files) {
+    let recordCount = 0;
 
-    for (const [path, buf] of files) {
-      if (!path.endsWith(".json")) continue;
+    for await (const entry of files.entries()) {
+      if (!entry.path.endsWith(".json")) continue;
 
       let data: Record<string, unknown>;
       try {
+        const buf = await entry.buffer();
         data = JSON.parse(buf.toString());
       } catch {
         continue;
@@ -24,7 +25,7 @@ export const tiktokConnector: PlatformConnector = {
         const info = (profile["Profile Information"] as Record<string, unknown>)
           ?.ProfileMap as Record<string, unknown> | undefined;
         if (info) {
-          results.push({
+          yield {
             kind: "account",
             sourceId: `tt-account-${info.userName ?? "self"}`,
             data: {
@@ -34,7 +35,7 @@ export const tiktokConnector: PlatformConnector = {
               avatarUrl: info.profilePhoto,
             },
             mediaRefs: info.profilePhoto ? [info.profilePhoto as string] : [],
-          });
+          };
         }
       }
 
@@ -45,9 +46,10 @@ export const tiktokConnector: PlatformConnector = {
 
       if (videoList) {
         for (const vid of videoList) {
-          results.push({
+          recordCount++;
+          yield {
             kind: "post",
-            sourceId: (vid.Link as string) ?? `tt-vid-${results.length}`,
+            sourceId: (vid.Link as string) ?? `tt-vid-${recordCount}`,
             sourceTimestamp: vid.Date ? new Date(vid.Date as string) : undefined,
             data: {
               text: vid.Description ?? "",
@@ -55,7 +57,7 @@ export const tiktokConnector: PlatformConnector = {
               likes: vid.Likes,
             },
             mediaRefs: vid.Link ? [vid.Link as string] : [],
-          });
+          };
         }
       }
 
@@ -66,13 +68,14 @@ export const tiktokConnector: PlatformConnector = {
 
       if (commentList) {
         for (const c of commentList) {
-          results.push({
+          recordCount++;
+          yield {
             kind: "comment",
-            sourceId: `tt-comment-${results.length}`,
+            sourceId: `tt-comment-${recordCount}`,
             sourceTimestamp: c.Date ? new Date(c.Date as string) : undefined,
             data: { text: c.Comment, authorName: "self" },
             mediaRefs: [],
-          });
+          };
         }
       }
 
@@ -80,17 +83,16 @@ export const tiktokConnector: PlatformConnector = {
       const likeList = data.ItemFavoriteList as Record<string, unknown>[] | undefined;
       if (likeList) {
         for (const item of likeList) {
-          results.push({
+          recordCount++;
+          yield {
             kind: "reaction",
-            sourceId: (item.Link as string) ?? `tt-like-${results.length}`,
+            sourceId: (item.Link as string) ?? `tt-like-${recordCount}`,
             sourceTimestamp: item.Date ? new Date(item.Date as string) : undefined,
             data: { targetUrl: item.Link },
             mediaRefs: [],
-          });
+          };
         }
       }
     }
-
-    return results;
   },
 };

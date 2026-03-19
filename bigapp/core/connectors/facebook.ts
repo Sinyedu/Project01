@@ -6,15 +6,14 @@ export const facebookConnector: PlatformConnector = {
   source: "facebook",
   modes: ["export_upload", "portability_push"],
 
-  parseExport(files) {
-    const results: ParseResult[] = [];
+  async *parseExport(files) {
     const contacts = new ContactCollector("fb");
 
-    // First pass: seed contacts from the friends list so we have a name
-    // registry even for people who never appear in messages.
-    for (const [path, buf] of files) {
-      if (/friends\/friends\.json$/i.test(path)) {
+    // First pass: seed contacts from the friends list
+    for await (const entry of files.entries()) {
+      if (/friends\/friends\.json$/i.test(entry.path)) {
         try {
+          const buf = await entry.buffer();
           const data = JSON.parse(buf.toString());
           const friends: Record<string, unknown>[] =
             data.friends_v2 ?? data.friends ?? (Array.isArray(data) ? data : []);
@@ -28,11 +27,15 @@ export const facebookConnector: PlatformConnector = {
       }
     }
 
-    for (const [path, buf] of files) {
+    // Second pass: process posts and messages
+    for await (const entry of files.entries()) {
+      const path = entry.path;
+      
       // Posts
       if (/your_posts.*\.json$/i.test(path)) {
         let posts: Record<string, unknown>[];
         try {
+          const buf = await entry.buffer();
           posts = JSON.parse(buf.toString());
           if (!Array.isArray(posts)) continue;
         } catch {
@@ -52,13 +55,13 @@ export const facebookConnector: PlatformConnector = {
 
           const rawText = (data?.post as string) ?? "";
 
-          results.push({
+          yield {
             kind: "post",
-            sourceId: `fb-post-${ts ?? results.length}`,
+            sourceId: `fb-post-${ts ?? Math.random()}`,
             sourceTimestamp: ts ? new Date(ts * 1000) : undefined,
             data: { text: decodeMeta(rawText), mediaUrls },
             mediaRefs: mediaUrls,
-          });
+          };
         }
       }
 
@@ -66,6 +69,7 @@ export const facebookConnector: PlatformConnector = {
       if (/messages\/inbox\/.*\/message_\d*\.json$/i.test(path)) {
         let chat: Record<string, unknown>;
         try {
+          const buf = await entry.buffer();
           chat = JSON.parse(buf.toString());
         } catch {
           continue;
@@ -87,7 +91,7 @@ export const facebookConnector: PlatformConnector = {
           .map((p) => decodeMeta(p.name))
           .join(", ");
 
-        results.push({
+        yield {
           kind: "conversation",
           sourceId: `fb-conv-${folderId ?? convId}`,
           data: {
@@ -95,16 +99,16 @@ export const facebookConnector: PlatformConnector = {
             participants: participantKeys,
           },
           mediaRefs: [],
-        });
+        };
 
         for (const msg of (chat.messages as Record<string, unknown>[]) ?? []) {
           const ts = msg.timestamp_ms as number | undefined;
           const senderRaw = (msg.sender_name as string) ?? "";
           const contactKey = contacts.track(senderRaw);
 
-          results.push({
+          yield {
             kind: "message",
-            sourceId: `fb-msg-${ts ?? results.length}`,
+            sourceId: `fb-msg-${ts ?? Math.random()}`,
             sourceTimestamp: ts ? new Date(ts) : undefined,
             data: {
               conversationId: `fb-conv-${folderId ?? convId}`,
@@ -114,12 +118,13 @@ export const facebookConnector: PlatformConnector = {
               mediaUrls: [],
             },
             mediaRefs: [],
-          });
+          };
         }
       }
     }
 
-    results.push(...contacts.toRecords());
-    return results;
+    for (const record of contacts.toRecords()) {
+      yield record;
+    }
   },
 };

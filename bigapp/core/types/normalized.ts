@@ -87,7 +87,6 @@ export interface NormalizedRecord {
   ingestionMode: "public_import" | "export_import";
   kind: RecordKind;
   sourceId: string;
-...
   sourceTimestamp?: Date;
   data: Record<string, unknown>;
   mediaRefs: string[];

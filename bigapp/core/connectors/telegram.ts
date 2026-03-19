@@ -6,14 +6,13 @@ export const telegramConnector: PlatformConnector = {
   modes: ["export_upload", "api_pull"],
 
   // Parses Telegram Desktop JSON export (result.json)
-  parseExport(files) {
-    const results: ParseResult[] = [];
-
-    for (const [path, buf] of files) {
-      if (!path.endsWith("result.json")) continue;
+  async *parseExport(files) {
+    for await (const entry of files.entries()) {
+      if (!entry.path.endsWith("result.json")) continue;
 
       let data: Record<string, unknown>;
       try {
+        const buf = await entry.buffer();
         data = JSON.parse(buf.toString());
       } catch {
         continue;
@@ -22,7 +21,7 @@ export const telegramConnector: PlatformConnector = {
       // Profile
       const personal = data.personal_information as Record<string, unknown> | undefined;
       if (personal) {
-        results.push({
+        yield {
           kind: "account",
           sourceId: `tg-account-${personal.user_id ?? "self"}`,
           data: {
@@ -33,7 +32,7 @@ export const telegramConnector: PlatformConnector = {
             phone: personal.phone_number,
           },
           mediaRefs: [],
-        });
+        };
       }
 
       // Chats
@@ -44,7 +43,7 @@ export const telegramConnector: PlatformConnector = {
         const chatName = (chat.name as string) ?? "Unnamed";
         const chatId = `tg-chat-${chat.id ?? chatName}`;
 
-        results.push({
+        yield {
           kind: "conversation",
           sourceId: chatId,
           data: {
@@ -53,7 +52,7 @@ export const telegramConnector: PlatformConnector = {
             messageCount: (chat.messages as unknown[])?.length,
           },
           mediaRefs: [],
-        });
+        };
 
         for (const msg of (chat.messages as Record<string, unknown>[]) ?? []) {
           if (msg.type !== "message") continue;
@@ -68,7 +67,7 @@ export const telegramConnector: PlatformConnector = {
 
           const mediaRef = msg.photo ?? msg.file;
 
-          results.push({
+          yield {
             kind: "message",
             sourceId: String(msg.id),
             sourceTimestamp: msg.date ? new Date(msg.date as string) : undefined,
@@ -79,11 +78,9 @@ export const telegramConnector: PlatformConnector = {
               mediaUrls: mediaRef ? [mediaRef as string] : [],
             },
             mediaRefs: mediaRef ? [mediaRef as string] : [],
-          });
+          };
         }
       }
     }
-
-    return results;
   },
 };

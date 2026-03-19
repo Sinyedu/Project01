@@ -23,7 +23,6 @@ export const NormalizedRecordSchema = z.object({
   ingestionMode: z.enum(["public_import", "export_import"]).default("export_import"),
   kind: RecordKindSchema,
   sourceId: z.string(), // ID from the external platform
-...
   sourceTimestamp: z.date().optional(),
   data: RecordDataSchema,
   mediaRefs: z.array(z.string()).default([]), // URLs or Asset IDs
