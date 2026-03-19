@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Platform } from "@/core/schema/source";
 
 interface SearchResult {
-  results: any[];
+  records: any[];
   total: number;
 }
 
@@ -51,7 +52,12 @@ export default function SearchPage() {
     <div className="min-h-screen bg-neutral-50 p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         <header className="space-y-4">
-          <h1 className="text-3xl font-bold text-neutral-900">Archive Search</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold text-neutral-900">Archive Search</h1>
+            <Link href="/dashboard" className="text-sm text-neutral-500 hover:text-blue-600">
+              ← Dashboard
+            </Link>
+          </div>
           <form onSubmit={handleSearch} className="flex gap-4">
             <input
               type="text"
@@ -74,8 +80,12 @@ export default function SearchPage() {
           <div className="space-y-6">
             <p className="text-neutral-500">Found {results.total} results</p>
             <div className="grid gap-4">
-              {results.results.map((record: any) => (
-                <div key={record._id} className="bg-white p-6 rounded-xl shadow-sm border border-neutral-100 hover:shadow-md transition-shadow">
+              {results.records.map((record: any) => (
+                <Link 
+                  key={record._id} 
+                  href={`/details/${record._id}`}
+                  className="bg-white p-6 rounded-xl shadow-sm border border-neutral-100 hover:shadow-md transition-shadow block"
+                >
                   <div className="flex items-start justify-between mb-4">
                     <span className="px-3 py-1 bg-neutral-100 text-neutral-600 rounded-full text-xs font-medium uppercase tracking-wider">
                       {record.platform}
@@ -86,35 +96,23 @@ export default function SearchPage() {
                   </div>
                   
                   <div className="space-y-4">
-                    {record.title && (
-                      <h3 className="text-lg font-bold text-neutral-900">{record.title}</h3>
+                    {(record.data?.title || record.title) && (
+                      <h3 className="text-lg font-bold text-neutral-900">
+                        {record.data?.title || record.title}
+                      </h3>
                     )}
                     
-                    {(record.textContent || record.data?.text) && (
-                      <p className="text-lg text-neutral-800 leading-relaxed">
-                        {record.textContent || record.data?.text}
+                    {(record.data?.text || record.textContent) && (
+                      <p className="text-lg text-neutral-800 leading-relaxed line-clamp-3">
+                        {record.data?.text || record.textContent}
                       </p>
-                    )}
-
-                    {record.sourceUrl && (
-                      <a 
-                        href={record.sourceUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-500 hover:underline"
-                      >
-                        View Original Source
-                      </a>
                     )}
                     
                     {record.mediaRefs && record.mediaRefs.length > 0 && (
                       <div className="grid grid-cols-3 gap-2">
-                        {record.mediaRefs.map((url: string, i: number) => (
-                          <div key={i} className="aspect-square bg-neutral-100 rounded-lg overflow-hidden">
-                            {/* Placeholder for media */}
-                            <div className="w-full h-full flex items-center justify-center text-neutral-400 text-xs">
-                              Media {i + 1}
-                            </div>
+                        {record.mediaRefs.slice(0, 3).map((url: string, i: number) => (
+                          <div key={i} className="aspect-square bg-neutral-100 rounded-lg overflow-hidden flex items-center justify-center text-neutral-400 text-[10px]">
+                            Media {i + 1}
                           </div>
                         ))}
                       </div>
@@ -130,7 +128,7 @@ export default function SearchPage() {
                       </div>
                     )}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>

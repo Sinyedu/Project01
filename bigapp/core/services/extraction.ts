@@ -3,6 +3,7 @@ import AdmZip from "adm-zip";
 import { connections, snapshots, records } from "@/core/db";
 import { getConnector } from "@/core/connectors/registry";
 import { aiService } from "@/core/ai/service";
+import { uploadMedia } from "./storage";
 import type { SnapshotJob, NormalizedRecord } from "@/core/types";
 
 function isZip(buf: Buffer): boolean {
@@ -76,6 +77,8 @@ export async function processUpload(
     // Build full normalized records with AI enrichment
     // Limit AI processing to first 50 items for speed/cost safety in this turn
     const normalized: NormalizedRecord[] = [];
+    let mediaComplete = 0;
+
     for (let i = 0; i < parsed.length; i++) {
       const p = parsed[i];
       const textForAI = p.data.text || p.data.title || p.data.body || "";
@@ -92,6 +95,24 @@ export async function processUpload(
         embedding = embed;
       }
 
+      // Upload media if present in the ZIP (limit to first 20 items with media)
+      const finalMediaRefs = [...p.mediaRefs];
+      if (p.mediaRefs.length > 0 && mediaComplete < 20) {
+        for (let j = 0; j < p.mediaRefs.length; j++) {
+          const ref = p.mediaRefs[j];
+          const buf = files.get(ref);
+          if (buf) {
+            try {
+              const archived = await uploadMedia(buf, ref);
+              finalMediaRefs[j] = archived.archivedUrl;
+            } catch {
+              // skip failed upload
+            }
+          }
+        }
+        mediaComplete++;
+      }
+
       normalized.push({
         userId,
         snapshotId: jobId,
@@ -100,8 +121,11 @@ export async function processUpload(
         kind: p.kind,
         sourceId: p.sourceId,
         sourceTimestamp: p.sourceTimestamp,
-        data: p.data,
-        mediaRefs: p.mediaRefs,
+        data: {
+          ...p.data,
+          mediaUrls: finalMediaRefs, // Ensure data.mediaUrls is also updated
+        },
+        mediaRefs: finalMediaRefs,
         checksum: checksum(p.data),
         tags,
         embedding,
@@ -132,6 +156,7 @@ export async function processUpload(
           completedAt: new Date(),
           "progress.processedItems": parsed.length,
           "progress.mediaQueued": mediaCount,
+          "progress.mediaComplete": mediaComplete,
         },
       },
     );

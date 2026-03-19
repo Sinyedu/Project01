@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { platformConfigs } from "@/core/config/platforms";
 
 export default function Dashboard() {
@@ -135,9 +136,12 @@ function DashboardInner() {
                         <span className="text-emerald-500 font-medium">{archive.status}</span>
                       </div>
                     </div>
-                    <button className="rounded-lg border border-border px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted hover:text-white transition-colors">
+                    <Link
+                      href={`/details/${archive._id}`}
+                      className="rounded-lg border border-border px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted hover:text-white transition-colors"
+                    >
                       Details
-                    </button>
+                    </Link>
                   </div>
                 ))}
               </div>
