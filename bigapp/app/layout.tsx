@@ -28,7 +28,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <ClerkProvider>
+    
+      <body className="min-h-full flex flex-col">
+          <ClerkProvider>
         <header className="flex justify-end items-center p-4 gap-4 h-16">
           <Show when="signed-out">
             <SignInButton />
@@ -42,9 +44,9 @@ export default function RootLayout({
             <UserButton />
           </Show>
         </header>
-        {children}
       </ClerkProvider>
-      <body className="min-h-full flex flex-col">{children}</body>
+      {children}
+      </body>
     </html>
   );
 }
