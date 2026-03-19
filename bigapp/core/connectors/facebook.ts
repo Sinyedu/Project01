@@ -1,5 +1,6 @@
 import type { PlatformConnector } from "./types";
 import type { ParseResult } from "@/core/types/normalized";
+import { ContactCollector, decodeMeta, extractFolderIdFromPath, extractFolderHandleFromPath } from "./contacts";
 
 export const facebookConnector: PlatformConnector = {
   source: "facebook",
@@ -7,9 +8,28 @@ export const facebookConnector: PlatformConnector = {
 
   parseExport(files) {
     const results: ParseResult[] = [];
+    const contacts = new ContactCollector("fb");
+
+    // First pass: seed contacts from the friends list so we have a name
+    // registry even for people who never appear in messages.
+    for (const [path, buf] of files) {
+      if (/friends\/friends\.json$/i.test(path)) {
+        try {
+          const data = JSON.parse(buf.toString());
+          const friends: Record<string, unknown>[] =
+            data.friends_v2 ?? data.friends ?? (Array.isArray(data) ? data : []);
+          for (const f of friends) {
+            const name = f.name as string | undefined;
+            if (name) contacts.track(name);
+          }
+        } catch {
+          // ignore malformed friends file
+        }
+      }
+    }
 
     for (const [path, buf] of files) {
-      // Posts: your_posts_*.json or your_posts__check_ins__*.json
+      // Posts
       if (/your_posts.*\.json$/i.test(path)) {
         let posts: Record<string, unknown>[];
         try {
@@ -30,17 +50,19 @@ export const facebookConnector: PlatformConnector = {
             }
           }
 
+          const rawText = (data?.post as string) ?? "";
+
           results.push({
             kind: "post",
             sourceId: `fb-post-${ts ?? results.length}`,
             sourceTimestamp: ts ? new Date(ts * 1000) : undefined,
-            data: { text: (data?.post as string) ?? "", mediaUrls },
+            data: { text: decodeMeta(rawText), mediaUrls },
             mediaRefs: mediaUrls,
           });
         }
       }
 
-      // Messages: messages/inbox/*/message_*.json (same format as Instagram)
+      // Messages
       if (/messages\/inbox\/.*\/message_\d*\.json$/i.test(path)) {
         let chat: Record<string, unknown>;
         try {
@@ -48,26 +70,48 @@ export const facebookConnector: PlatformConnector = {
         } catch {
           continue;
         }
+
+        const folderId = extractFolderIdFromPath(path);
+        const folderHandle = extractFolderHandleFromPath(path);
+
         const participants = (chat.participants as Record<string, string>[]) ?? [];
-        const convId = participants.map((p) => p.name).join(", ");
+        const participantKeys = participants.map((p) => {
+          const isDm = participants.length === 2;
+          const pid = isDm ? folderId : undefined;
+          const handle = isDm ? folderHandle : undefined;
+          return contacts.track(p.name, pid, handle);
+        });
+
+        const convId = participantKeys.join("+");
+        const convTitle = participants
+          .map((p) => decodeMeta(p.name))
+          .join(", ");
 
         results.push({
           kind: "conversation",
-          sourceId: `fb-conv-${convId}`,
-          data: { title: convId, participants: participants.map((p) => p.name) },
+          sourceId: `fb-conv-${folderId ?? convId}`,
+          data: {
+            title: convTitle,
+            participants: participantKeys,
+          },
           mediaRefs: [],
         });
 
         for (const msg of (chat.messages as Record<string, unknown>[]) ?? []) {
           const ts = msg.timestamp_ms as number | undefined;
+          const senderRaw = (msg.sender_name as string) ?? "";
+          const contactKey = contacts.track(senderRaw);
+
           results.push({
             kind: "message",
             sourceId: `fb-msg-${ts ?? results.length}`,
             sourceTimestamp: ts ? new Date(ts) : undefined,
             data: {
-              conversationId: convId,
-              senderName: msg.sender_name,
-              text: msg.content ?? "",
+              conversationId: `fb-conv-${folderId ?? convId}`,
+              contactKey,
+              senderName: decodeMeta(senderRaw),
+              text: decodeMeta((msg.content as string) ?? ""),
+              mediaUrls: [],
             },
             mediaRefs: [],
           });
@@ -75,6 +119,7 @@ export const facebookConnector: PlatformConnector = {
       }
     }
 
+    results.push(...contacts.toRecords());
     return results;
   },
 };

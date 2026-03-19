@@ -1,11 +1,24 @@
 "use client";
 
+import { Suspense } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { platformConfigs } from "@/core/config/platforms";
 
 export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[80vh] items-center justify-center">
+        <p className="animate-pulse text-muted">Loading your dashboard...</p>
+      </div>
+    }>
+      <DashboardInner />
+    </Suspense>
+  );
+}
+
+function DashboardInner() {
   const { user, isLoaded } = useUser();
   const searchParams = useSearchParams();
   const [connections, setConnections] = useState<any[]>([]);

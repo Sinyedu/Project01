@@ -30,13 +30,6 @@ export interface PostData {
   replyTo?: string;
 }
 
-export interface MessageData {
-  conversationId?: string;
-  senderName?: string;
-  text?: string;
-  mediaUrls: string[];
-}
-
 export interface ConversationData {
   title?: string;
   participants: string[];
@@ -58,8 +51,20 @@ export interface MediaAssetData {
 
 export interface ContactData {
   name?: string;
+  normalizedKey: string;
+  platformId?: string;
+  handle?: string;
   phone?: string;
   username?: string;
+  nameVariants?: string[];
+}
+
+export interface MessageData {
+  conversationId?: string;
+  contactKey?: string;
+  senderName?: string;
+  text?: string;
+  mediaUrls: string[];
 }
 
 // --- What a connector parser returns (before provenance is added) ---

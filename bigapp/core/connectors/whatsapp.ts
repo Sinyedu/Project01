@@ -1,5 +1,6 @@
 import type { PlatformConnector } from "./types";
 import type { ParseResult } from "@/core/types/normalized";
+import { ContactCollector } from "./contacts";
 
 /**
  * WhatsApp exports are plain text files with format:
@@ -16,6 +17,7 @@ export const whatsappConnector: PlatformConnector = {
 
   parseExport(files) {
     const results: ParseResult[] = [];
+    const contacts = new ContactCollector("wa");
 
     for (const [path, buf] of files) {
       if (!path.endsWith(".txt")) continue;
@@ -26,18 +28,20 @@ export const whatsappConnector: PlatformConnector = {
       results.push({
         kind: "conversation",
         sourceId: `wa-conv-${chatTitle}`,
-        data: { title: chatTitle, participants: [] },
+        data: { title: chatTitle, participants: [] as string[] },
         mediaRefs: [],
       });
 
-      const participants = new Set<string>();
+      const participantKeys: string[] = [];
       let idx = 0;
 
       for (const line of lines) {
         const match = line.match(LINE_RE);
         if (!match) continue;
         const [, datePart, timePart, sender, text] = match;
-        participants.add(sender);
+
+        const contactKey = contacts.track(sender);
+        if (!participantKeys.includes(contactKey)) participantKeys.push(contactKey);
 
         let ts: Date | undefined;
         try {
@@ -47,7 +51,6 @@ export const whatsappConnector: PlatformConnector = {
           ts = undefined;
         }
 
-        // <Media omitted> or attached file references
         const isMediaRef = /\(file attached\)|<Media omitted>/i.test(text);
 
         results.push({
@@ -56,6 +59,7 @@ export const whatsappConnector: PlatformConnector = {
           sourceTimestamp: ts,
           data: {
             conversationId: `wa-conv-${chatTitle}`,
+            contactKey,
             senderName: sender,
             text: isMediaRef ? "" : text,
             mediaUrls: [],
@@ -64,13 +68,14 @@ export const whatsappConnector: PlatformConnector = {
         });
       }
 
-      // Backfill participants on conversation
+      // Backfill participants with normalized keys
       const conv = results.find((r) => r.sourceId === `wa-conv-${chatTitle}`);
       if (conv) {
-        (conv.data as Record<string, unknown>).participants = [...participants];
+        (conv.data as Record<string, unknown>).participants = participantKeys;
       }
     }
 
+    results.push(...contacts.toRecords());
     return results;
   },
 };
