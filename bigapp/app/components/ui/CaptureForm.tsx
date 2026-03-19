@@ -16,19 +16,19 @@ export function CaptureForm() {
     setMessage("");
 
     try {
-      const res = await fetch("/api/archives", {
+      const res = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, platform }),
+        body: JSON.stringify({ url, source: platform }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Capture failed");
+        throw new Error(data.error || "Import failed");
       }
 
       setStatus("success");
-      setMessage("Archived! Content has been captured and preserved.");
+      setMessage("Imported! Public content has been added to your archive.");
       setUrl("");
     } catch (err) {
       setStatus("error");
@@ -42,7 +42,7 @@ export function CaptureForm() {
         <input
           type="url"
           required
-          placeholder="Paste a URL to archive..."
+          placeholder="Paste a public profile or page URL..."
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-foreground placeholder-muted outline-none transition-colors focus:border-accent"
@@ -57,7 +57,7 @@ export function CaptureForm() {
         >
           {PLATFORMS.map((p) => (
             <option key={p} value={p}>
-              {platformConfigs[p].name}
+              {platformConfigs[p].name} Public
             </option>
           ))}
         </select>
@@ -67,7 +67,7 @@ export function CaptureForm() {
           disabled={status === "loading"}
           className="rounded-lg bg-accent px-6 py-3 font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {status === "loading" ? "Archiving..." : "Capture"}
+          {status === "loading" ? "Importing..." : "Import"}
         </button>
       </div>
 

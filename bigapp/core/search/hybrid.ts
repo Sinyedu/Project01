@@ -10,6 +10,7 @@ export interface SearchParams {
   offset?: number;
   tags?: string[];
   platforms?: string[];
+  ingestionModes?: ("public_import" | "export_import")[];
   dateRange?: { start?: Date; end?: Date };
 }
 
@@ -79,6 +80,10 @@ export class HybridSearchService {
         match[tsField] = {};
         if (params.dateRange.start) match[tsField].$gte = params.dateRange.start;
         if (params.dateRange.end) match[tsField].$lte = params.dateRange.end;
+      }
+
+      if (params.ingestionModes?.length) {
+        match.ingestionMode = { $in: params.ingestionModes };
       }
 
       pipeline.push({ $match: match });

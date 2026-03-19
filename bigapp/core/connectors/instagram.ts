@@ -15,23 +15,20 @@ export const instagramConnector: PlatformConnector = {
   source: "instagram",
   modes: ["export_upload", "portability_push"],
 
-  async *parseExport(files) {
+  async *parseExport(files: Map<string, Buffer>) {
     const contacts = new ContactCollector("ig");
     let recordCount = 0;
 
-    for await (const entry of files.entries()) {
-      const path = entry.path;
-      
+    for (const [path, buf] of files.entries()) {
       // Posts
       if (/content\/posts_\d*\.json$/i.test(path)) {
-        const buf = await entry.buffer();
         const posts = tryJson(buf);
         if (!posts) continue;
         for (const post of posts as Record<string, unknown>[]) {
           const media = (post.media as Record<string, unknown>[]) ?? [];
           const ts = media[0]?.creation_timestamp;
           const rawTitle = (post.title as string) ?? "";
-          
+
           recordCount++;
           yield {
             kind: "post",
@@ -48,14 +45,13 @@ export const instagramConnector: PlatformConnector = {
 
       // Messages
       if (/messages\/inbox\/.*\/message_\d*\.json$/i.test(path)) {
-        const buf = await entry.buffer();
         let chat: Record<string, unknown>;
         try {
           chat = JSON.parse(buf.toString());
         } catch {
           continue;
         }
-
+...
         const folderId = extractFolderIdFromPath(path);
         const folderHandle = extractFolderHandleFromPath(path);
         const participants = (chat.participants as Record<string, string>[]) ?? [];

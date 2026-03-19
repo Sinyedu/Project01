@@ -11,21 +11,21 @@ import { Footer } from "@/app/components/layout/Footer";
 const FEATURES = [
   {
     icon: "📡",
-    title: "Instant Capture",
+    title: "Public Web Import",
     description:
-      "Paste a URL from any supported platform. We pull metadata via oEmbed, archive images to Cloudinary, and store everything permanently.",
+      "Paste a public profile or page URL. We fetch, parse, and preserve the content, metadata, and media permanently.",
+  },
+  {
+    icon: "📦",
+    title: "Official Exports",
+    description:
+      "Upload your official data exports from Facebook, Instagram, X, and more. We turn raw files into a searchable memory archive.",
   },
   {
     icon: "🔒",
-    title: "Time Capsules",
+    title: "Secure Archive",
     description:
-      "Lock content away until a future date. A message to yourself in 2030, or a snapshot of right now for someone in 2075.",
-  },
-  {
-    icon: "🩺",
-    title: "Link Rot Detection",
-    description:
-      "We check your archived source URLs every week. When the original vanishes, your preserved copy lives on.",
+      "Your digital history is stored with integrity. We preserve provenance, original files, and high-quality media assets.",
   },
 ];
 
@@ -44,17 +44,16 @@ export default function Home() {
           gradient
           className="mb-6 text-5xl font-bold leading-tight tracking-tight sm:text-7xl"
         >
-          Preserve the present
+          Your Digital Legacy
         </AnimatedHeading>
 
         <p className="animate-fade-in-up delay-2 mb-4 text-3xl font-semibold sm:text-4xl">
-          before it disappears
+          Preserved & Searchable
         </p>
 
         <p className="animate-fade-in-up delay-3 mx-auto mb-12 max-w-2xl text-lg leading-relaxed text-muted">
-          Social posts vanish. Communities dissolve. Local stories go untold.
-          BigApp captures the living web and keeps it alive for decades —
-          structured, searchable, and honest about what it is.
+          Import public pages and upload your official account exports into one unified, 
+          private archive. BigApp keeps your memories alive — structured, grounded, and future-proof.
         </p>
 
         <div className="animate-fade-in-up delay-4 flex gap-4">
@@ -62,13 +61,13 @@ export default function Home() {
             href="#capture"
             className="rounded-full bg-accent px-6 py-3 font-semibold text-black transition-colors hover:bg-amber-400"
           >
-            Start archiving
+            Start Your Archive
           </a>
           <a
-            href="#platforms"
+            href="/dashboard"
             className="rounded-full border border-border px-6 py-3 font-semibold transition-colors hover:border-muted hover:text-white"
           >
-            Learn more
+            Go to Dashboard
           </a>
         </div>
       </section>
@@ -76,8 +75,8 @@ export default function Home() {
       {/* ── Platforms ── */}
       <Section
         id="platforms"
-        title="Capture from anywhere"
-        subtitle="We pull metadata and content from the platforms where life actually happens."
+        title="Import from your favorite platforms"
+        subtitle="We support official exports and public pages from the platforms where your digital life happens."
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {platforms.map(([key, cfg], i) => (
@@ -95,8 +94,8 @@ export default function Home() {
       {/* ── Features ── */}
       <Section
         id="features"
-        title="How it works"
-        subtitle="Three layers that make sure nothing important gets lost."
+        title="A Grounded Personal Archive"
+        subtitle="Move beyond brittle live connections. Build a reliable, future-proof history."
       >
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f, i) => (
@@ -108,8 +107,8 @@ export default function Home() {
       {/* ── Capture ── */}
       <Section
         id="capture"
-        title="Archive something right now"
-        subtitle="Paste a link. We'll extract metadata, save the media, and preserve it."
+        title="Import a public page right now"
+        subtitle="Paste a link. We'll extract the content, save the media, and preserve it."
       >
         <Show when="signed-in">
           <CaptureForm />

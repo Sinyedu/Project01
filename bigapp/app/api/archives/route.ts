@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { archives } from "@/core/db";
-import { runCapture } from "@/core/services/pipeline";
+import { importPublicUrl } from "@/core/imports/public/pipeline";
 import { isPlatform, type ContentType } from "@/core/types";
 
 export async function GET() {
@@ -18,10 +18,9 @@ export async function POST(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { url, platform, contentType = "post", tags } = body as {
+  const { url, platform, tags } = body as {
     url: string;
     platform: string;
-    contentType?: ContentType;
     tags?: string[];
   };
 
@@ -30,10 +29,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const item = await runCapture({ url, platform, contentType, userId, tags });
-    return NextResponse.json(item, { status: 201 });
+    const result = await importPublicUrl(url, platform, userId);
+    return NextResponse.json(result, { status: 201 });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Capture failed";
+    const msg = e instanceof Error ? e.message : "Import failed";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

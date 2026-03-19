@@ -9,6 +9,8 @@ import { getDb } from "./client";
 import { Job, JobSchema } from "@/core/schema/job";
 import { NormalizedRecord, NormalizedRecordSchema } from "@/core/schema/record";
 import { SourceConnection, SourceConnectionSchema } from "@/core/schema/source";
+import { RawSnapshot, MediaAsset, NormalizedProfile } from "@/core/schema/ingest";
+import { Moment, MomentMembership, AIEnrichment } from "@/core/moments/schema";
 
 // Legacy collections (keep until fully migrated)
 export async function archives(): Promise<Collection<ArchiveItem>> {
@@ -38,4 +40,30 @@ export async function connections(): Promise<Collection<SourceConnection>> {
 
 export async function records(): Promise<Collection<NormalizedRecord>> {
   return (await getDb()).collection<NormalizedRecord>("records");
+}
+
+// Ingest pipeline collections
+export async function rawSnapshots(): Promise<Collection<RawSnapshot>> {
+  return (await getDb()).collection<RawSnapshot>("raw_snapshots");
+}
+
+export async function profiles(): Promise<Collection<NormalizedProfile>> {
+  return (await getDb()).collection<NormalizedProfile>("profiles");
+}
+
+export async function mediaAssets(): Promise<Collection<MediaAsset>> {
+  return (await getDb()).collection<MediaAsset>("media_assets");
+}
+
+// Moment Engine collections
+export async function moments(): Promise<Collection<Moment>> {
+  return (await getDb()).collection<Moment>("moments");
+}
+
+export async function momentMemberships(): Promise<Collection<MomentMembership>> {
+  return (await getDb()).collection<MomentMembership>("moment_memberships");
+}
+
+export async function aiEnrichments(): Promise<Collection<AIEnrichment>> {
+  return (await getDb()).collection<AIEnrichment>("ai_enrichments");
 }

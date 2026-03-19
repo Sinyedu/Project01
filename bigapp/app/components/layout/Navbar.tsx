@@ -29,6 +29,12 @@ export function Navbar() {
           </a>
           <Show when="signed-in">
             <a
+              href="/moments"
+              className="text-sm text-muted transition-colors hover:text-foreground"
+            >
+              Moments
+            </a>
+            <a
               href="/dashboard"
               className="text-sm text-muted transition-colors hover:text-foreground"
             >

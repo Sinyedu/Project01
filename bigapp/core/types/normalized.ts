@@ -78,15 +78,16 @@ export interface ParseResult {
 }
 
 // --- Full record stored in MongoDB ---
-
 export interface NormalizedRecord {
   _id?: string;
   userId: string;
   snapshotId: string;
   connectionId: string;
-  source: Source;
+  platform: Platform;
+  ingestionMode: "public_import" | "export_import";
   kind: RecordKind;
   sourceId: string;
+...
   sourceTimestamp?: Date;
   data: Record<string, unknown>;
   mediaRefs: string[];

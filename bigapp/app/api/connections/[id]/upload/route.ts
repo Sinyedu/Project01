@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { processUpload } from "@/core/services/extraction";
+import { importOfficialExport } from "@/core/imports/exports/pipeline";
 
 export async function POST(
   req: NextRequest,
@@ -21,7 +21,7 @@ export async function POST(
   const buf = Buffer.from(await file.arrayBuffer());
 
   try {
-    const snapshot = await processUpload(connectionId, userId, file.name, buf);
+    const snapshot = await importOfficialExport(connectionId, userId, file.name, buf);
     return NextResponse.json(snapshot, { status: 201 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Upload processing failed";

@@ -2,7 +2,7 @@ export { PLATFORMS, isPlatform } from "./platforms";
 export type { Platform } from "./platforms";
 
 export { SOURCES, isSource } from "./source";
-export type { Source } from "./source";
+export type { Source, IngestionMode } from "./source";
 
 export type {
   ContentType,
@@ -18,7 +18,6 @@ export type {
 } from "./archive";
 
 export type {
-  ConnectorMode,
   ConnectionStatus,
   SourceConnection,
   SnapshotPhase,

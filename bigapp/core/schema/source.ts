@@ -12,33 +12,23 @@ export const PlatformSchema = z.enum([
   "sms",
   "photos",
   "contacts",
+  "x",
   "other",
 ]);
 
-export const ConnectorModeSchema = z.enum([
-  "api_pull",
-  "portability_push",
-  "export_upload",
-  "local_importer",
+export const IngestionModeSchema = z.enum([
+  "public_import",
+  "export_import",
 ]);
 
 export const SourceConnectionSchema = z.object({
   _id: z.string().optional(), // MongoDB ID
   userId: z.string(),
   platform: PlatformSchema,
-  mode: ConnectorModeSchema,
+  mode: IngestionModeSchema,
   displayName: z.string().optional(),
-  credentials: z.object({
-    accessToken: z.string().optional(),
-    refreshToken: z.string().optional(),
-    expiresAt: z.date().optional(),
-    clientId: z.string().optional(),
-    clientSecret: z.string().optional(), // Encrypt this in real app!
-  }).optional(),
-  scopes: z.array(z.string()).optional(),
-  cursor: z.string().optional(), // For pagination
   lastSnapshotAt: z.date().optional(),
-  status: z.enum(["active", "revoked", "error"]),
+  status: z.enum(["active", "revoked", "error", "completed"]),
   createdAt: z.date().default(() => new Date()),
   updatedAt: z.date().default(() => new Date()),
 });

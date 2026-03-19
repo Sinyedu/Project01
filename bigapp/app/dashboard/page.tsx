@@ -61,21 +61,14 @@ function DashboardInner() {
     );
   }
 
-  const handleAddAccount = (provider: string) => {
-    const manualPlatforms = ['instagram', 'facebook', 'twitter', 'tiktok'];
-    
-    if (manualPlatforms.includes(provider)) {
-      // Use our custom public API redirect
-      window.location.href = `/api/auth/${provider}`;
-    } else {
-      // Fallback to Clerk for other platforms
-      window.location.href = `https://accounts.clerk.com/user-profile/connected-accounts`;
-    }
+  const handleImportPublic = () => {
+    // Navigate to public import flow or open modal
+    window.location.href = "/#capture";
   };
 
-  const isConnected = (provider: string) => {
-    // Check both Clerk connections and our future local DB connections (placeholder check for now)
-    return connections.some((acc) => acc.provider.includes(provider));
+  const handleUploadExport = (platform: string) => {
+    // Navigate to export upload flow
+    window.location.href = `/dashboard/import/${platform}`;
   };
 
   return (
@@ -89,9 +82,9 @@ function DashboardInner() {
       )}
 
       <header className="mb-12 text-center sm:text-left">
-        <h1 className="mb-2 text-4xl font-bold text-white tracking-tight">Dashboard</h1>
+        <h1 className="mb-2 text-4xl font-bold text-white tracking-tight">Archive Dashboard</h1>
         <p className="text-lg text-muted">
-          Welcome back, <span className="text-accent">{user?.firstName || "Archiver"}</span>.
+          Manage your personal archive. Import public pages and official exports.
         </p>
       </header>
 
@@ -99,9 +92,9 @@ function DashboardInner() {
         <div className="lg:col-span-2">
           <section className="mb-12">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-white">Recent Archives</h2>
+              <h2 className="text-xl font-semibold text-white">Recent Imports</h2>
               <a href="/#capture" className="text-sm font-medium text-accent hover:underline">
-                + Archive New
+                + New Import
               </a>
             </div>
 
@@ -112,7 +105,7 @@ function DashboardInner() {
                   href="/#capture"
                   className="rounded-full bg-border/50 px-8 py-3 text-sm font-semibold transition-all hover:bg-muted"
                 >
-                  Start Archiving
+                  Start Importing
                 </a>
               </div>
             ) : (
@@ -124,23 +117,23 @@ function DashboardInner() {
                   >
                     <div className="flex flex-col gap-1">
                       <h3 className="font-medium text-white group-hover:text-accent transition-colors truncate max-w-md">
-                        {archive.title || archive.url}
+                        {archive.title || archive.url || archive.displayName}
                       </h3>
                       <div className="flex items-center gap-2 text-xs text-muted">
                         <span className="font-semibold uppercase text-[10px] px-1.5 py-0.5 rounded bg-border/50">
-                          {archive.platform}
+                          {archive.platform || archive.source}
                         </span>
                         <span>•</span>
-                        <span>{new Date(archive.createdAt).toLocaleDateString()}</span>
+                        <span className="capitalize">{archive.ingestionMode?.replace('_', ' ') || 'Import'}</span>
                         <span>•</span>
-                        <span className="text-emerald-500 font-medium">{archive.status}</span>
+                        <span>{new Date(archive.createdAt).toLocaleDateString()}</span>
                       </div>
                     </div>
                     <Link
                       href={`/details/${archive._id}`}
                       className="rounded-lg border border-border px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted hover:text-white transition-colors"
                     >
-                      Details
+                      View
                     </Link>
                   </div>
                 ))}
@@ -151,10 +144,9 @@ function DashboardInner() {
 
         <div className="space-y-12">
           <section>
-            <h2 className="mb-6 text-xl font-semibold text-white">Connections</h2>
+            <h2 className="mb-6 text-xl font-semibold text-white">Import Sources</h2>
             <div className="space-y-3">
               {Object.entries(platformConfigs).map(([key, platform]) => {
-                const connected = isConnected(key);
                 return (
                   <div
                     key={key}
@@ -169,21 +161,15 @@ function DashboardInner() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-white">{platform.name}</p>
-                        <p className="text-[10px] text-muted">
-                          {connected ? "Active" : "Disconnected"}
-                        </p>
+                        <p className="text-[10px] text-muted">Official Export</p>
                       </div>
                     </div>
 
                     <button
-                      onClick={() => handleAddAccount(key)}
-                      className={`rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-all ${
-                        connected
-                          ? "bg-border/50 text-muted hover:bg-muted hover:text-white"
-                          : "bg-accent text-black hover:bg-amber-400"
-                      }`}
+                      onClick={() => handleUploadExport(key)}
+                      className="rounded-lg bg-accent px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-black transition-all hover:bg-amber-400"
                     >
-                      {connected ? "Manage" : "Connect"}
+                      Upload
                     </button>
                   </div>
                 );
@@ -191,11 +177,17 @@ function DashboardInner() {
             </div>
           </section>
 
-          <div className="rounded-2xl border border-amber-500/10 bg-amber-500/[0.03] p-5">
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-amber-500">Manual Auth</h3>
-            <p className="text-[11px] leading-relaxed text-muted/80">
-              We now use public OAuth endpoints for social media logins to ensure maximum compatibility and direct platform access.
+          <div className="rounded-2xl border border-blue-500/10 bg-blue-500/[0.03] p-5">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-500">Public Web Import</h3>
+            <p className="mb-4 text-[11px] leading-relaxed text-muted/80">
+              Paste a public profile or page URL to fetch its content into your archive.
             </p>
+            <button 
+              onClick={handleImportPublic}
+              className="w-full rounded-lg border border-border bg-card/50 py-2 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-card"
+            >
+              Import URL
+            </button>
           </div>
         </div>
       </div>
