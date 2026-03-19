@@ -1,5 +1,5 @@
 import type { Source } from "./source";
-import type { ConnectorMode } from "./connector";
+import type { Platform } from "./platforms";
 
 export type RecordKind =
   | "account"
@@ -94,6 +94,5 @@ export interface NormalizedRecord {
   checksum: string;
   tags: string[];
   embedding?: number[];
-  importMethod: ConnectorMode;
   createdAt: Date;
 }

@@ -19,6 +19,7 @@ export const MomentSchema = z.object({
   sourceUrls: z.array(z.string()).default([]),
   assetIds: z.array(z.string()).default([]),
   rawSnapshotIds: z.array(z.string()).default([]),
+  snapshotIds: z.array(z.string()).default([]), // For export-based snapshot jobs
   normalizedEntityIds: z.array(z.string()).default([]),
   people: z.array(z.string()).default([]),
   places: z.array(z.string()).default([]),
@@ -49,8 +50,8 @@ export const MomentMembershipSchema = z.object({
   _id: z.string().optional(),
   userId: z.string(),
   momentId: z.string(),
-  targetId: z.string(), // NormalizedProfile or MediaAsset
-  targetType: z.enum(["profile", "asset"]),
+  targetId: z.string(), // NormalizedProfile, MediaAsset, or NormalizedRecord
+  targetType: z.enum(["profile", "asset", "record"]),
   membershipReason: z.array(MomentMembershipReasonSchema).default([]),
   score: z.number().default(1.0),
   createdAt: z.date().default(() => new Date()),

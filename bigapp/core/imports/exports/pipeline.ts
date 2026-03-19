@@ -5,22 +5,31 @@ import { getConnector } from "@/core/connectors/registry";
 import { aiService } from "@/core/ai/service";
 import { uploadMedia } from "@/core/services/storage";
 import type { SnapshotJob, NormalizedRecord } from "@/core/types";
+import type { ParseResult } from "@/core/types/normalized";
 
 function isZip(buf: Buffer): boolean {
   return buf.length > 4 && buf[0] === 0x50 && buf[1] === 0x4b;
 }
 
-function extractFiles(buf: Buffer, fileName: string): Map<string, Buffer> {
+function extractFiles(buf: Buffer | string, fileName: string): Map<string, Buffer> {
   const files = new Map<string, Buffer>();
-  if (isZip(buf)) {
+  
+  // AdmZip can take a buffer OR a file path string
+  try {
     const zip = new AdmZip(buf);
     for (const entry of zip.getEntries()) {
       if (entry.isDirectory) continue;
       files.set(entry.entryName, entry.getData());
     }
-  } else {
-    files.set(fileName, buf);
+  } catch (err) {
+    // If not a zip, treat as single file (only if buf is a Buffer)
+    if (Buffer.isBuffer(buf)) {
+      files.set(fileName, buf);
+    } else {
+      throw new Error("Failed to process file as ZIP archive");
+    }
   }
+  
   return files;
 }
 
@@ -36,7 +45,7 @@ export async function importOfficialExport(
   connectionId: string,
   userId: string,
   fileName: string,
-  fileBuf: Buffer,
+  fileInput: Buffer | string, // Can be buffer or path string
 ): Promise<SnapshotJob> {
   const connCol = await connections();
   const conn = await connCol.findOne({ _id: connectionId, userId } as any);
@@ -59,14 +68,14 @@ export async function importOfficialExport(
   const jobId = insertedId.toString();
 
   try {
-    const files = extractFiles(fileBuf, fileName);
+    const files = extractFiles(fileInput, fileName);
     const connector = getConnector(conn.platform as any);
     const parsedRaw = connector.parseExport(files);
     
     let parsed: ParseResult[] = [];
     if (Array.isArray(parsedRaw)) {
       parsed = parsedRaw;
-    } else if (Symbol.asyncIterator in (parsedRaw as any)) {
+    } else if (parsedRaw && Symbol.asyncIterator in (parsedRaw as any)) {
       for await (const p of (parsedRaw as AsyncGenerator<ParseResult>)) {
         parsed.push(p);
       }

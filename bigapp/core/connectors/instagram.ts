@@ -20,8 +20,27 @@ export const instagramConnector: PlatformConnector = {
     let recordCount = 0;
 
     for (const [path, buf] of files.entries()) {
+      // Profile / Account Info
+      if (/personal_information\/personal_information\.json$/i.test(path) || /profile\/profile\.json$/i.test(path)) {
+        const data = JSON.parse(buf.toString());
+        const profile = data.profile_user?.[0] || data.profile_v2?.[0] || data;
+        if (profile) {
+          yield {
+            kind: "account",
+            sourceId: `ig-account-${profile.username || "self"}`,
+            data: {
+              username: profile.username,
+              displayName: profile.name || profile.full_name,
+              bio: profile.biography || profile.bio,
+              email: profile.email,
+            },
+            mediaRefs: [],
+          };
+        }
+      }
+
       // Posts
-      if (/content\/posts_\d*\.json$/i.test(path)) {
+      if (/(content|posts)\/posts_\d*\.json$/i.test(path)) {
         const posts = tryJson(buf);
         if (!posts) continue;
         for (const post of posts as Record<string, unknown>[]) {
@@ -51,7 +70,7 @@ export const instagramConnector: PlatformConnector = {
         } catch {
           continue;
         }
-...
+
         const folderId = extractFolderIdFromPath(path);
         const folderHandle = extractFolderHandleFromPath(path);
         const participants = (chat.participants as Record<string, string>[]) ?? [];
