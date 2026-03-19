@@ -37,42 +37,45 @@ export function CaptureForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-4">
-      <div>
+    <form onSubmit={handleSubmit} className="space-y-8">
+      <div className="relative group">
         <input
           type="url"
           required
           placeholder="Paste a public profile or page URL..."
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-foreground placeholder-muted outline-none transition-colors focus:border-accent"
+          className="w-full border-b border-border/40 bg-transparent py-3 text-lg text-white outline-none focus:border-accent/40 transition-all placeholder:text-muted/20"
         />
       </div>
 
-      <div className="flex gap-3">
-        <select
-          value={platform}
-          onChange={(e) => setPlatform(e.target.value as typeof platform)}
-          className="flex-1 appearance-none rounded-lg border border-border bg-surface px-4 py-3 text-foreground outline-none transition-colors focus:border-accent"
-        >
+      <div className="flex items-center justify-between gap-6">
+        <div className="flex gap-4">
           {PLATFORMS.map((p) => (
-            <option key={p} value={p}>
-              {platformConfigs[p].name} Public
-            </option>
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPlatform(p)}
+              className={`text-[10px] font-black uppercase tracking-widest transition-colors ${
+                platform === p ? "text-accent" : "text-muted/40 hover:text-white"
+              }`}
+            >
+              {platformConfigs[p].name}
+            </button>
           ))}
-        </select>
+        </div>
 
         <button
           type="submit"
           disabled={status === "loading"}
-          className="rounded-lg bg-accent px-6 py-3 font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="text-[10px] font-black uppercase tracking-[0.2em] text-white hover:text-accent disabled:opacity-20 transition-colors"
         >
-          {status === "loading" ? "Importing..." : "Import"}
+          {status === "loading" ? "Importing..." : "Import →"}
         </button>
       </div>
 
       {message && (
-        <p className={status === "success" ? "text-emerald-400" : "text-red-400"}>
+        <p className={`text-[10px] font-bold uppercase tracking-widest ${status === "success" ? "text-emerald-500" : "text-red-500"}`}>
           {message}
         </p>
       )}
