@@ -1,5 +1,12 @@
 import type { Collection } from "mongodb";
-import type { ArchiveItem, CaptureJob, TimeCapsule } from "@/core/types";
+import type {
+  ArchiveItem,
+  CaptureJob,
+  TimeCapsule,
+  SourceConnection,
+  SnapshotJob,
+  NormalizedRecord,
+} from "@/core/types";
 import { getDb } from "./client";
 
 export async function archives(): Promise<Collection<ArchiveItem>> {
@@ -12,4 +19,16 @@ export async function captureJobs(): Promise<Collection<CaptureJob>> {
 
 export async function timeCapsules(): Promise<Collection<TimeCapsule>> {
   return (await getDb()).collection<TimeCapsule>("time_capsules");
+}
+
+export async function connections(): Promise<Collection<SourceConnection>> {
+  return (await getDb()).collection<SourceConnection>("connections");
+}
+
+export async function snapshots(): Promise<Collection<SnapshotJob>> {
+  return (await getDb()).collection<SnapshotJob>("snapshots");
+}
+
+export async function records(): Promise<Collection<NormalizedRecord>> {
+  return (await getDb()).collection<NormalizedRecord>("records");
 }

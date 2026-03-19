@@ -25,6 +25,26 @@ export async function setupIndexes() {
     { key: { userId: 1 } },
   ]);
 
+  await db.collection("connections").createIndexes([
+    { key: { userId: 1, source: 1 } },
+    { key: { status: 1 } },
+  ]);
+
+  await db.collection("snapshots").createIndexes([
+    { key: { connectionId: 1, startedAt: -1 } },
+    { key: { phase: 1 } },
+    { key: { userId: 1 } },
+  ]);
+
+  await db.collection("records").createIndexes([
+    { key: { userId: 1, source: 1, kind: 1 } },
+    { key: { snapshotId: 1 } },
+    { key: { connectionId: 1 } },
+    { key: { sourceId: 1, source: 1 }, unique: true, sparse: true },
+    { key: { sourceTimestamp: -1 } },
+    { key: { checksum: 1 } },
+  ]);
+
   console.log("Indexes created.");
 }
 
