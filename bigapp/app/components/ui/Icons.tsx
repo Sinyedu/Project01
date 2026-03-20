@@ -93,16 +93,3 @@ export function DownloadIcon({ className }: { className?: string }) {
     </svg>
   );
 }
-
-export function PlatformIcon({ platform, className }: { platform: string; className?: string }) {
-  switch (platform.toLowerCase()) {
-    case 'instagram': return <InstagramIcon className={className} />;
-    case 'facebook': return <FacebookIcon className={className} />;
-    case 'twitter':
-    case 'x': return <TwitterIcon className={className} />;
-    case 'whatsapp': return <WhatsAppIcon className={className} />;
-    case 'telegram': return <TelegramIcon className={className} />;
-    case 'tiktok': return <TikTokIcon className={className} />;
-    default: return <ArchiveIcon className={className} />;
-  }
-}

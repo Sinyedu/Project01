@@ -5,8 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { platformConfigs } from "@/core/config/platforms";
-import { PlatformIcon, SearchIcon, ArchiveIcon, ShieldIcon, CheckIcon } from "@/app/components/ui/Icons";
+import { SearchIcon, ArchiveIcon, ShieldIcon, CheckIcon, DownloadIcon, InstagramIcon, FacebookIcon, TwitterIcon, WhatsAppIcon, TelegramIcon, TikTokIcon } from "@/app/components/ui/Icons";
 
 export default function Dashboard() {
   return (
@@ -185,21 +184,49 @@ function DashboardInner() {
           </section>
 
           <section className="space-y-8">
-            <h2 className="archive-label text-foreground">Official Sources</h2>
-            <div className="space-y-3">
-              {Object.entries(platformConfigs).map(([key, platform]) => (
-                <button
-                  key={key}
-                  onClick={() => router.push(`/dashboard/import/${key}`)}
-                  className="flex w-full items-center justify-between group rounded-2xl border border-surface-border/50 bg-surface/20 p-4 transition-all hover:bg-surface/50 hover:border-surface-border"
-                >
-                  <div className="flex items-center gap-4">
-                    <PlatformIcon platform={key} className="h-5 w-5 grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all" />
-                    <span className="text-[11px] font-bold text-muted group-hover:text-foreground transition-colors uppercase tracking-widest">{platform.name}</span>
-                  </div>
-                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Import</span>
-                </button>
-              ))}
+            <h2 className="archive-label text-foreground">Import Helper</h2>
+            <div className="rounded-2xl border border-surface-border bg-surface/30 p-6 space-y-8">
+              <div className="space-y-2">
+                <p className="text-[11px] font-black uppercase tracking-widest text-foreground">How to Import Your Data</p>
+                <p className="text-[12px] leading-relaxed text-muted-foreground font-medium">
+                  You can import data from any platform that provides a digital archive (Google Takeout, Instagram, Facebook, etc.).
+                </p>
+              </div>
+
+              {/* Showcase Sources */}
+              <div className="space-y-4">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted">Common Sources</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { name: "Instagram", icon: InstagramIcon },
+                    { name: "Facebook", icon: FacebookIcon },
+                    { name: "Twitter", icon: TwitterIcon },
+                    { name: "WhatsApp", icon: WhatsAppIcon },
+                    { name: "Telegram", icon: TelegramIcon },
+                    { name: "TikTok", icon: TikTokIcon },
+                  ].map((p) => (
+                    <div key={p.name} className="flex flex-col items-center justify-center gap-2 rounded-xl border border-surface-border/50 bg-surface/40 p-3 grayscale transition-all hover:grayscale-0 hover:bg-surface/60">
+                      <p.icon className="h-4 w-4" />
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground">{p.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <ol className="space-y-4">
+                {[
+                  { step: "1", text: "Go to the official platform's settings and request a data download (select JSON or Media format when possible)." },
+                  { step: "2", text: "Once your archive is ready, download the ZIP file or folder to your device." },
+                  { step: "3", text: "Use the 'Preserve New Media' button above to upload and verify your archive." }
+                ].map((item) => (
+                  <li key={item.step} className="flex gap-4">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[10px] font-black text-accent border border-accent/20">
+                      {item.step}
+                    </span>
+                    <span className="text-[11px] leading-relaxed text-muted-foreground font-medium">{item.text}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
           </section>
 

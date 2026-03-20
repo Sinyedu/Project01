@@ -11,19 +11,48 @@ import fs from "fs";
 import path from "path";
 import { format } from "date-fns";
 
+import { getLocalMediaRoot, getPublicMediaBaseUrl } from "@/core/config/storage";
+
 export async function processEnrichVaultItemJob(job: Job) {
   const { vaultItemId } = job.payload as { vaultItemId: string };
 
   try {
+    if (!vaultItemId) {
+      await JobQueue.complete(job._id!.toString(), { status: "skipped", reason: "missing_id" });
+      return;
+    }
     const col = await vaultItems();
-    const item = await col.findOne({ _id: new ObjectId(vaultItemId) });
-
-    if (!item) {
-      throw new Error(`Vault item ${vaultItemId} not found`);
+    
+    // Purge very old jobs from this user to keep queue healthy
+    const isVeryStale = (Date.now() - new Date(job.createdAt).getTime()) > 3600000; // 1 hour
+    if (isVeryStale) {
+        await JobQueue.complete(job._id!.toString(), { status: "skipped", reason: "expired" });
+        return;
     }
 
+    // Add a small retry loop with delay to account for eventual consistency
+    let item = null;
+    const maxAttempts = 3;
+    
+    for (let i = 0; i < maxAttempts; i++) {
+        try {
+            item = await col.findOne({ _id: new ObjectId(vaultItemId) });
+        } catch {
+            item = await col.findOne({ _id: vaultItemId } as any);
+        }
+        
+        if (item) break;
+        if (i < maxAttempts - 1) await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+
+    if (!item) {
+      await JobQueue.complete(job._id!.toString(), { status: "skipped", reason: "item_not_found" });
+      return;
+    }
+
+    console.log(`[Job ${job._id}] Enriching: ${item.originalFilename}`);
+
     if (item.type !== "image") {
-      // For now we skip video enrichment to avoid complex frame extraction
       await JobQueue.complete(job._id!.toString(), { skipped: "video" });
       return;
     }
@@ -38,7 +67,17 @@ export async function processEnrichVaultItemJob(job: Job) {
       buffer = Buffer.from(arrayBuffer);
       mimeType = response.headers.get("content-type") || "image/jpeg";
     } else {
-      const fullPath = path.join(process.cwd(), "public", item.storagePath);
+      // Local path - extract from storagePath which looks like /api/media/vault/userId/year/month/file
+      const relativePath = item.storagePath.includes("/vault/") 
+          ? item.storagePath.split(`${getPublicMediaBaseUrl()}/`)[1] || item.storagePath
+          : item.storagePath;
+      const fullPath = path.join(getLocalMediaRoot(), relativePath);
+      
+      if (!fs.existsSync(fullPath)) {
+        console.error(`[Job ${job._id}] File not found at ${fullPath}`);
+        throw new Error(`File not found: ${fullPath}`);
+      }
+      
       buffer = await fs.promises.readFile(fullPath);
       // Simple extension check
       const ext = path.extname(item.storagePath).toLowerCase();
@@ -99,10 +138,10 @@ export async function processInstagramMemoriesJob(job: Job) {
 
 export async function processZipOrganizeJob(job: Job) {
   const { userId } = job;
-  const { zipPath, outputMode } = job.payload as { zipPath: string; outputMode: "cloudinary" | "local" };
+  const { zipPath, outputMode } = job.payload as { zipPath: string; outputMode: "cloudinary" | "local" | "staging" };
 
   try {
-    console.log(`[Job ${job._id}] Starting Zip Organize Pipeline...`);
+    console.log(`[Job ${job._id}] Starting Zip Organize Pipeline with mode: ${outputMode}`);
     const result = await runZipOrganizePipeline(job._id!.toString(), {
       userId,
       zipPath,

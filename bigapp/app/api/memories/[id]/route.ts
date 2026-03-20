@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { memoryBundles, records } from "@/core/db/collections";
 import { ObjectId } from "mongodb";
+import { getPublicMediaBaseUrl } from "@/core/config/storage";
 
 export async function GET(
   req: NextRequest,
@@ -36,7 +37,7 @@ export async function GET(
     sourceId: item.sourceId,
     timestamp: item.sourceTimestamp,
     data: item.data,
-    secureUrl: item.data.secureUrl as string || (item.data.path as string ? `/media/${item.data.path}` : null),
+    secureUrl: item.data.secureUrl as string || (item.data.path as string ? `${getPublicMediaBaseUrl()}/${item.data.path}` : null),
   }));
 
   return NextResponse.json({

@@ -45,6 +45,17 @@ export async function setupIndexes() {
     { key: { checksum: 1 } },
   ]);
 
+  await db.collection("vaults").createIndexes([
+    { key: { userId: 1 }, unique: true },
+  ]);
+
+  await db.collection("vault_items").createIndexes([
+    { key: { userId: 1, vaultId: 1 } },
+    { key: { userId: 1, vaultId: 1, checksum: 1 }, unique: true },
+    { key: { captureDate: -1 } },
+    { key: { monthKey: 1 } },
+  ]);
+
   /**
    * NOTE: Atlas Vector Search index must be created via Atlas UI or API.
    * Name: vector_index

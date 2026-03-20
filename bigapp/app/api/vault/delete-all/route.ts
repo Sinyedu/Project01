@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { vaultItems, vaults } from "@/core/db/collections";
+import { vaultItems, vaults, jobs } from "@/core/db/collections";
 import { auth } from "@clerk/nextjs/server";
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
 import path from "path";
+import { getLocalMediaRoot, getPublicMediaBaseUrl } from "@/core/config/storage";
 
 cloudinary.config({ secure: true });
 
@@ -13,16 +14,13 @@ export async function POST() {
 
   try {
     const vaultCol = await vaults();
-    const vault = await vaultCol.findOne({ userId });
-    if (!vault) {
-      return NextResponse.json({ message: "No vault found to delete" });
-    }
-
-    const vaultId = vault._id.toString();
     const vaultItemCol = await vaultItems();
-    const items = await vaultItemCol.find({ userId, vaultId }).toArray();
+    const jobCol = await jobs();
 
-    console.log(`[Vault Delete] Starting hard delete for user ${userId}, vault ${vaultId}. Items to delete: ${items.length}`);
+    // Find all items for this user regardless of vaultId
+    const items = await vaultItemCol.find({ userId }).toArray();
+
+    console.log(`[Vault Delete] Starting hard delete for user ${userId}. Items to delete: ${items.length}`);
 
     // 1. Delete physical files
     for (const item of items) {
@@ -34,8 +32,11 @@ export async function POST() {
               resource_type: item.type === "video" ? "video" : "image" 
             });
           } else {
-            // Local
-            const fullPath = path.join(process.cwd(), "public", item.storageId);
+            // Local - if storageId is a URL, we need to extract the path
+            const relativePath = item.storageId.includes("/vault/") 
+                ? item.storageId.split(`${getPublicMediaBaseUrl()}/`)[1] || item.storageId
+                : item.storageId;
+            const fullPath = path.join(getLocalMediaRoot(), relativePath);
             if (fs.existsSync(fullPath)) {
               await fs.promises.unlink(fullPath);
             }
@@ -48,16 +49,19 @@ export async function POST() {
     }
 
     // 2. Cleanup local directories if they exist
-    const userVaultDir = path.join(process.cwd(), "public", "media", "vault", userId);
+    const userVaultDir = path.join(getLocalMediaRoot(), "vault", userId);
     if (fs.existsSync(userVaultDir)) {
       await fs.promises.rm(userVaultDir, { recursive: true, force: true });
     }
 
     // 3. Delete DB records
-    await vaultItemCol.deleteMany({ userId, vaultId });
-    await vaultCol.deleteOne({ _id: vault._id });
+    await vaultItemCol.deleteMany({ userId });
+    const vaultResult = await vaultCol.deleteMany({ userId });
 
-    console.log(`[Vault Delete] Successfully deleted vault and ${items.length} items for user ${userId}`);
+    // 4. Clear ALL jobs for this user to prevent worker looping on stale data
+    const clearResult = await jobCol.deleteMany({ userId });
+
+    console.log(`[Vault Delete] Successfully wiped vault (${vaultResult.deletedCount} vaults), deleted ${items.length} items, and cleared ${clearResult.deletedCount} total jobs for user ${userId}`);
 
     return NextResponse.json({ 
       success: true, 

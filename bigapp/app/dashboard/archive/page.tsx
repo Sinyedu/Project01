@@ -12,6 +12,7 @@ interface JobResult {
   folders: { path: string; count: number }[];
   downloadUrl?: string;
   archiveManifests: string[];
+  stagingPath?: string;
 }
 
 export default function PersonalArchivePage() {
@@ -21,23 +22,31 @@ export default function PersonalArchivePage() {
   const [error, setError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobResult, setJobResult] = useState<JobResult | null>(null);
+  const [finalizing, setFinalizing] = useState<"idle" | "processing" | "success" | "error">("idle");
 
   // Poll for job status
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
     if (status === "processing" && jobId) {
+      console.log(`[Dashboard] Starting poll for job: ${jobId}`);
       interval = setInterval(async () => {
         try {
           const res = await fetch(`/api/import/status/${jobId}`);
-          if (!res.ok) throw new Error("Failed to check status");
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            console.error(`[Dashboard] Status check failed (${res.status}):`, errorData);
+            throw new Error(errorData.error || `Failed to check status (${res.status})`);
+          }
           
           const data = await res.json();
           if (data.status === "completed") {
+            console.log(`[Dashboard] Job completed! Result:`, data.result);
             setJobResult(data.result);
             setStatus("success");
             clearInterval(interval);
           } else if (data.status === "failed") {
+            console.error(`[Dashboard] Job failed:`, data.error);
             setError(data.error || "Processing failed");
             setStatus("error");
             clearInterval(interval);
@@ -114,7 +123,7 @@ export default function PersonalArchivePage() {
       formData.append("file", file, path);
     });
     formData.append("mode", "organize");
-    formData.append("outputMode", "local");
+    formData.append("outputMode", "staging");
 
     try {
       const res = await fetch("/api/import/upload", {
@@ -133,6 +142,38 @@ export default function PersonalArchivePage() {
     } catch (err: unknown) {
       setStatus("error");
       setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleFinalize = async (targetMode: "local" | "cloudinary") => {
+    console.log(`[Dashboard] handleFinalize called with mode: ${targetMode}. jobId: ${jobId}, stagingPath: ${jobResult?.stagingPath}`);
+    if (!jobId || !jobResult?.stagingPath) {
+        console.error("[Dashboard] Missing jobId or stagingPath in jobResult!");
+        return;
+    }
+    
+    setFinalizing("processing");
+    try {
+      console.log(`[Dashboard] Fetching /api/vault/finalize...`);
+      const res = await fetch("/api/vault/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId,
+          targetMode,
+          stagingPath: jobResult.stagingPath,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Finalization failed");
+      }
+
+      setFinalizing("success");
+    } catch (err: any) {
+      setFinalizing("error");
+      setError(err.message);
     }
   };
 
@@ -250,62 +291,129 @@ export default function PersonalArchivePage() {
                   <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-background">
                     <CheckIcon className="h-7 w-7" />
                   </div>
-                  <h2 className="font-serif text-3xl text-foreground mb-2">Preservation Successful</h2>
+                  <h2 className="font-serif text-3xl text-foreground mb-2">Analysis Complete</h2>
                   <p className="text-[13px] font-medium text-muted-foreground">
-                    {jobResult.mediaFilesFound} media files have been verified and organized into {jobResult.folders.length} monthly capsules.
+                    {jobResult.mediaFilesFound} media files have been verified and organized. Choose where to permanently store your capsule.
                   </p>
                 </div>
 
-                <div className="grid gap-6 sm:grid-cols-2">
-                  <div className="archive-card hover:bg-surface/50">
-                    <p className="archive-label mb-6">Archive Details</p>
-                    <div className="space-y-4">
-                      <div className="flex justify-between border-b border-surface-border pb-3">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted">Media Count</span>
-                        <span className="text-[11px] font-black text-foreground">{jobResult.mediaFilesFound}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-surface-border pb-3">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted">Integrity Mode</span>
-                        <span className="text-[11px] font-black text-accent uppercase">SHA-256</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted">Format</span>
-                        <span className="text-[11px] font-black text-foreground uppercase">JSON Manifest</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="archive-card hover:bg-surface/50">
-                    <p className="archive-label mb-6">Established Capsules</p>
-                    <div className="max-h-32 overflow-y-auto space-y-3 pr-2">
-                      {jobResult.folders.map(f => (
-                        <div key={f.path} className="flex justify-between items-center text-[11px] font-bold uppercase tracking-widest">
-                          <span className="text-muted truncate mr-4">{f.path}</span>
-                          <span className="text-accent">{f.count} items</span>
+                {finalizing === "idle" ? (
+                  <div className="space-y-12">
+                    <div className="grid gap-6 sm:grid-cols-2">
+                        <button
+                        onClick={() => handleFinalize("local")}
+                        className="group flex flex-col items-center justify-center gap-4 rounded-3xl border border-surface-border bg-surface/20 p-12 transition-all hover:bg-surface/50 hover:border-accent/40"
+                        >
+                        <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-background transition-colors">
+                            <ArchiveIcon className="h-6 w-6" />
                         </div>
-                      ))}
+                        <div className="text-center">
+                            <p className="font-serif text-xl text-foreground">Local Vault</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted mt-1">Store on this device</p>
+                        </div>
+                        </button>
+                        <button
+                        onClick={() => handleFinalize("cloudinary")}
+                        className="group flex flex-col items-center justify-center gap-4 rounded-3xl border border-surface-border bg-surface/20 p-12 transition-all hover:bg-surface/50 hover:border-accent/40"
+                        >
+                        <div className="h-12 w-12 rounded-full bg-sky-500/10 flex items-center justify-center text-sky-500 group-hover:bg-sky-500 group-hover:text-white transition-colors">
+                            <ShieldIcon className="h-6 w-6" />
+                        </div>
+                        <div className="text-center">
+                            <p className="font-serif text-xl text-foreground">Cloud Vault</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted mt-1">Sync to Cloudinary</p>
+                        </div>
+                        </button>
+                    </div>
+
+                    <div className="grid gap-6 sm:grid-cols-2">
+                    <div className="archive-card hover:bg-surface/50">
+                        <p className="archive-label mb-6">Archive Details</p>
+                        <div className="space-y-4">
+                        <div className="flex justify-between border-b border-surface-border pb-3">
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-muted">Media Count</span>
+                            <span className="text-[11px] font-black text-foreground">{jobResult.mediaFilesFound}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-surface-border pb-3">
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-muted">Integrity Mode</span>
+                            <span className="text-[11px] font-black text-accent uppercase">SHA-256</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-[11px] font-bold uppercase tracking-widest text-muted">Format</span>
+                            <span className="text-[11px] font-black text-foreground uppercase">JSON Manifest</span>
+                        </div>
+                        </div>
+                    </div>
+                    <div className="archive-card hover:bg-surface/50">
+                        <p className="archive-label mb-6">Established Capsules</p>
+                        <div className="max-h-32 overflow-y-auto space-y-3 pr-2">
+                        {jobResult.folders.map(f => (
+                            <div key={f.path} className="flex justify-between items-center text-[11px] font-bold uppercase tracking-widest">
+                            <span className="text-muted truncate mr-4">{f.path}</span>
+                            <span className="text-accent">{f.count} items</span>
+                            </div>
+                        ))}
+                        </div>
+                    </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                        {jobResult.downloadUrl && (
+                        <a
+                            href={jobResult.downloadUrl}
+                            download
+                            className="archive-button-outline w-full py-6 text-xs flex items-center justify-center gap-3"
+                        >
+                            <DownloadIcon className="h-4 w-4" />
+                            Download Organized Archive (.ZIP)
+                        </a>
+                        )}
+
+                        <button
+                        onClick={() => setStatus("idle")}
+                        className="archive-label text-center py-4 transition-colors hover:text-foreground"
+                        >
+                        Discard and Start Over
+                        </button>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex flex-col gap-4">
-                    {jobResult.downloadUrl && (
-                    <a
-                        href={jobResult.downloadUrl}
-                        download
-                        className="archive-button w-full py-6 text-xs flex gap-3"
-                    >
-                        <DownloadIcon className="h-4 w-4" />
-                        Download Preservation Package (.ZIP)
-                    </a>
-                    )}
-
-                    <button
-                    onClick={() => setStatus("idle")}
-                    className="archive-label text-center py-4 transition-colors hover:text-foreground"
-                    >
-                    Create Another Archive
-                    </button>
-                </div>
+                ) : finalizing === "processing" ? (
+                    <div className="flex flex-col items-center justify-center py-32 text-center bg-surface/20 rounded-3xl border border-surface-border animate-pulse">
+                        <div className="h-16 w-16 animate-spin rounded-full border-2 border-accent border-t-transparent mb-8" />
+                        <h3 className="font-serif text-3xl text-foreground">Finalizing Vault...</h3>
+                        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-muted mt-4">Establishing permanent record and verifying bitstreams</p>
+                    </div>
+                ) : finalizing === "success" ? (
+                    <div className="rounded-3xl border border-accent/20 bg-accent/5 p-20 text-center animate-fade-in">
+                         <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full bg-accent text-background">
+                            <CheckIcon className="h-10 w-10" />
+                        </div>
+                        <h3 className="font-serif text-4xl text-foreground mb-4">Vault Integration Complete</h3>
+                        <p className="text-[15px] font-medium text-muted-foreground mb-12">Your capsule is now fully integrated and verified.</p>
+                        <div className="flex flex-col gap-4">
+                            <Link href="/dashboard" className="archive-button w-full py-6 text-xs inline-block text-center">
+                                View in The Vault →
+                            </Link>
+                            <button
+                                onClick={() => {
+                                    setStatus("idle");
+                                    setFinalizing("idle");
+                                    setJobId(null);
+                                    setJobResult(null);
+                                }}
+                                className="archive-label text-center py-4 transition-colors hover:text-foreground"
+                            >
+                                Process Another Archive
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="rounded-3xl border border-destructive/20 bg-destructive/5 p-20 text-center">
+                         <p className="font-serif text-3xl text-destructive mb-4">Finalization Failed</p>
+                         <p className="text-[15px] font-medium text-muted-foreground mb-12">{error}</p>
+                         <button onClick={() => setFinalizing("idle")} className="archive-button bg-destructive text-white border-none py-5 px-12 text-xs">Try Again</button>
+                    </div>
+                )}
               </div>
             )}
 

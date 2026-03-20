@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import exifr from "exifr";
 import { NormalizedRecord } from "@/core/schema/record";
+import { getLocalMediaRoot } from "@/core/config/storage";
 
 /**
  * Step 2: Extract dates from each file
@@ -22,7 +23,7 @@ export async function extractDate(record: NormalizedRecord): Promise<Date> {
   if (!filePath) return record.createdAt || new Date();
 
   // Construct absolute path for local storage
-  const baseDir = process.env.LOCAL_MEDIA_ROOT || path.join(process.cwd(), "public", "media");
+  const baseDir = getLocalMediaRoot();
   // Assuming filePath is relative to baseDir or a direct match in some platform subfolder
   // For Instagram, it might be like 'instagram/2026/03/...'
   const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(baseDir, filePath);

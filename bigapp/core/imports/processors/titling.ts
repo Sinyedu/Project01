@@ -4,6 +4,7 @@ import { memoryBundles, records } from "@/core/db/collections";
 import { aiService } from "@/core/ai/service";
 import { ObjectId } from "mongodb";
 import { format } from "date-fns";
+import { getLocalMediaRoot } from "@/core/config/storage";
 
 /**
  * Step 4: Auto-title each bundle with AI
@@ -24,7 +25,7 @@ export async function autoTitleBundles(userId: string) {
       const filePath = (record.data.path as string || record.data.name as string);
       if (!filePath) continue;
 
-      const baseDir = process.env.LOCAL_MEDIA_ROOT || path.join(process.cwd(), "public", "media");
+      const baseDir = getLocalMediaRoot();
       const absolutePath = path.isAbsolute(filePath) ? filePath : path.join(baseDir, filePath);
 
       if (!fs.existsSync(absolutePath)) continue;

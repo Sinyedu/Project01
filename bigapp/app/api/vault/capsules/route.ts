@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { vaultItems, vaults } from "@/core/db/collections";
 import { auth } from "@clerk/nextjs/server";
+import { ObjectId } from "mongodb";
 
 export async function GET() {
   const { userId } = await auth();
@@ -13,8 +14,9 @@ export async function GET() {
   }
 
   const col = await vaultItems();
+  const vId = vault._id.toString();
   const pipeline = [
-    { $match: { userId, vaultId: vault._id.toString() } },
+    { $match: { userId, vaultId: { $in: [vId, new ObjectId(vId)] } } },
     {
       $group: {
         _id: "$monthKey",

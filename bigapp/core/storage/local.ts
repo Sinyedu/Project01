@@ -4,6 +4,7 @@ import crypto from "crypto";
 import stream from "stream";
 import { promisify } from "util";
 import type { MediaStorageAdapter, StoredMediaResult } from "./adapter";
+import { getLocalMediaRoot, getPublicMediaBaseUrl } from "../config/storage";
 
 const pipeline = promisify(stream.pipeline);
 
@@ -12,8 +13,8 @@ export class LocalFilesystemStorageAdapter implements MediaStorageAdapter {
   private publicBaseUrl: string;
 
   constructor() {
-    this.baseDir = process.env.LOCAL_MEDIA_ROOT || path.join(process.cwd(), "public", "media");
-    this.publicBaseUrl = process.env.LOCAL_MEDIA_PUBLIC_BASE_URL || "/media";
+    this.baseDir = getLocalMediaRoot();
+    this.publicBaseUrl = getPublicMediaBaseUrl();
   }
 
   private getDeterministicPath(source: string, filenameHint: string, hash: string): string {

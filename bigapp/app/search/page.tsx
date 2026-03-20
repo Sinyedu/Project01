@@ -3,8 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { platformConfigs } from "@/core/config/platforms";
-import { PlatformIcon, SearchIcon } from "@/app/components/ui/Icons";
+import { SearchIcon, ArchiveIcon } from "@/app/components/ui/Icons";
 
 interface SearchResult {
   results: any[];
@@ -24,24 +23,21 @@ function SearchInner() {
   const router = useRouter();
   
   const initialQuery = searchParams.get("q") || "";
-  const initialPlatforms = searchParams.get("platforms")?.split(",").filter(Boolean) || [];
   
   const [query, setQuery] = useState(initialQuery);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(initialPlatforms);
   const [results, setResults] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [isDeepSearch, setIsDeepSearch] = useState(true);
 
   const handleSearch = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!query && selectedPlatforms.length === 0) return;
+    if (!query) return;
     
     setLoading(true);
     
     // Update URL
     const params = new URLSearchParams();
     if (query) params.set("q", query);
-    if (selectedPlatforms.length) params.set("platforms", selectedPlatforms.join(","));
     if (isDeepSearch) params.set("deep", "true");
     
     router.push(`/search?${params.toString()}`, { scroll: false });
@@ -59,16 +55,10 @@ function SearchInner() {
   };
 
   useEffect(() => {
-    if (initialQuery || initialPlatforms.length > 0) {
+    if (initialQuery) {
       handleSearch();
     }
   }, []);
-
-  const togglePlatform = (key: string) => {
-    setSelectedPlatforms(prev => 
-      prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]
-    );
-  };
 
   return (
     <div className="min-h-screen bg-background pt-32 pb-20 px-6">
@@ -101,23 +91,6 @@ function SearchInner() {
             </div>
 
             <div className="flex flex-wrap items-center gap-8">
-              <div className="flex flex-wrap gap-4">
-                {Object.entries(platformConfigs).map(([key, cfg]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => togglePlatform(key)}
-                    className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                      selectedPlatforms.includes(key)
-                        ? "text-accent"
-                        : "text-muted/40 hover:text-white"
-                    }`}
-                  >
-                    {cfg.name}
-                  </button>
-                ))}
-              </div>
-
               <div className="flex items-center gap-3 border-l border-border/10 pl-8">
                 <button 
                   type="button"
@@ -147,7 +120,6 @@ function SearchInner() {
               ) : (
                 results.results.map((record: any) => {
                   const platform = record.platform || record.source;
-                  const cfg = platformConfigs[platform as keyof typeof platformConfigs];
                   const title = record.data?.title || record.title || record.data?.text?.slice(0, 80);
                   const timestamp = record.sourceTimestamp || record.createdAt;
 
@@ -160,17 +132,16 @@ function SearchInner() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-start gap-6 max-w-2xl">
                           <div 
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface border border-border/40"
-                            style={{ color: cfg?.color || '#333' }}
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface border border-border/40 text-muted"
                           >
-                            <PlatformIcon platform={platform} className="h-5 w-5" />
+                            <ArchiveIcon className="h-5 w-5" />
                           </div>
                           <div className="space-y-1">
                             <h3 className="text-xl font-bold text-white group-hover:text-accent transition-colors leading-tight tracking-tight">
                               {title}
                             </h3>
                             <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-muted">
-                              <span style={{ color: cfg?.color }}>{platform}</span>
+                              <span className="uppercase">{platform}</span>
                               <span>·</span>
                               <span>{new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                             </div>

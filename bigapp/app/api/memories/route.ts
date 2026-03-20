@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { memoryBundles, records } from "@/core/db/collections";
 import { ObjectId } from "mongodb";
+import { getPublicMediaBaseUrl } from "@/core/config/storage";
 
 export async function GET(req: NextRequest) {
   const { userId } = await auth();
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
       let coverImageUrl = null;
       if (record) {
         // secureUrl should be something like /media/instagram/yyyy/mm/...
-        coverImageUrl = record.data.secureUrl as string || (record.data.path as string ? `/media/${record.data.path}` : null);
+        coverImageUrl = record.data.secureUrl as string || (record.data.path as string ? `${getPublicMediaBaseUrl()}/${record.data.path}` : null);
       }
       return {
         id: bundle._id,

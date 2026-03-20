@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { connections } from "@/core/db";
-import { importOfficialExport } from "@/core/imports/exports/pipeline";
 import { JobQueue } from "@/core/jobs/client";
 import path from "path";
 import fs from "fs";
 import busboy from "busboy";
 import { randomUUID } from "crypto";
+import os from "os";
 
 // Next.js App Router Config
 export const dynamic = 'force-dynamic';
@@ -16,12 +15,11 @@ export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const tempDir = path.join(process.cwd(), ".tmp", `upload-${randomUUID()}`);
+  const tempDir = path.join(os.tmpdir(), "bigapp-uploads", `upload-${randomUUID()}`);
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-  
-  let platform: string | null = null;
+
   let mode: string | null = null;
-  let outputMode: "cloudinary" | "local" = "local";
+  let outputMode: "cloudinary" | "local" | "staging" = "local";
   let firstFileName: string | null = null;
   let fileCount = 0;
   let bytesReceived = 0;
@@ -43,12 +41,10 @@ export async function POST(req: NextRequest) {
         fileCount++;
         
         const filePath = path.join(tempDir, filename);
-        // Ensure subdirectories exist if filename contains paths
         const fileDir = path.dirname(filePath);
         if (!fs.existsSync(fileDir)) fs.mkdirSync(fileDir, { recursive: true });
 
         const writeStream = fs.createWriteStream(filePath);
-        console.log(`[Upload] Receiving file: ${filename}`);
         file.pipe(writeStream);
         
         const p = new Promise<void>((res, rej) => {
@@ -63,15 +59,13 @@ export async function POST(req: NextRequest) {
       });
 
       bb.on('field', (name, val) => {
-        if (name === 'platform') platform = val;
         if (name === 'mode') mode = val;
-        if (name === 'outputMode' && (val === 'cloudinary' || val === 'local')) outputMode = val as any;
+        if (name === 'outputMode' && (val === 'cloudinary' || val === 'local' || val === 'staging')) outputMode = val as any;
       });
 
       bb.on('finish', async () => {
         try {
           await Promise.all(filePromises);
-          console.log(`[Upload] Finished receiving ${fileCount} files. Total: ${Math.round(bytesReceived / (1024 * 1024))} MB`);
           resolve();
         } catch (err) {
           reject(err);
@@ -82,7 +76,6 @@ export async function POST(req: NextRequest) {
         reject(err);
       });
 
-      // Convert Web ReadableStream to Node Readable
       const reader = req.body?.getReader();
       if (!reader) {
         reject(new Error("Empty body"));
@@ -114,20 +107,16 @@ export async function POST(req: NextRequest) {
       let finalPath: string;
 
       if (fileCount === 1 && firstFileName?.endsWith(".zip")) {
-        // Already a ZIP
         finalPath = path.join(tempDir, firstFileName);
       } else {
-        // Multiple files or single non-zip, process the directory directly
         finalPath = tempDir;
       }
 
-      // Create a background job for organizing
       const jobId = await JobQueue.enqueue("organize_zip", {
-        zipPath: finalPath, // Pipeline now supports directory as zipPath
+        zipPath: finalPath,
         outputMode,
       }, userId);
 
-      // Trigger worker immediately in background (don't await)
       const protocol = req.headers.get("x-forwarded-proto") || "http";
       const host = req.headers.get("host");
       fetch(`${protocol}://${host}/api/cron/worker`, { cache: 'no-store' }).catch(err => {
@@ -137,41 +126,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ jobId }, { status: 202 });
     }
 
-    // For snapshot import (traditional mode), we expect exactly one ZIP
-    const tempFilePath = path.join(tempDir, firstFileName || "export.zip");
-    
-    if (!platform || !fs.existsSync(tempFilePath)) {
-      if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
-      return NextResponse.json({ error: "File and platform are required for snapshot import" }, { status: 400 });
-    }
-
-    console.log(`[Upload] Processing connection for platform: ${platform}`);
-    const connCol = await connections();
-    let conn = await connCol.findOne({ userId, platform: platform as any, mode: "export_import" });
-
-    if (!conn) {
-      const result = await connCol.insertOne({
-        userId,
-        platform: platform as any,
-        mode: "export_import",
-        status: "active",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as any);
-      conn = { _id: result.insertedId } as any;
-    }
-
-    const snapshot = await importOfficialExport(
-      conn!._id!.toString(),
-      userId,
-      firstFileName || "export.zip",
-      tempFilePath
-    );
-
-    // Only unlink if not in organize mode (organize mode handles its own cleanup)
-    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-
-    return NextResponse.json(snapshot, { status: 201 });
+    return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("[Upload] Fatal error:", err);

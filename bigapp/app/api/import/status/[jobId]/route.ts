@@ -10,22 +10,35 @@ export async function GET(
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) {
+    console.error("[JobStatus] Unauthorized access attempt");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const { jobId } = await params;
   if (!jobId) return NextResponse.json({ error: "Job ID required" }, { status: 400 });
 
   try {
     const jobCol = await jobs();
-    const job = await jobCol.findOne({
-      _id: new ObjectId(jobId),
-      userId,
-    });
+    const db = jobCol.databaseName;
+    console.log(`[JobStatus] Polling for job ${jobId} in DB: ${db}, user: ${userId}`);
+
+    // Try finding by ObjectId first, then by string if it fails
+    let query: any = { userId };
+    try {
+        query._id = new ObjectId(jobId);
+    } catch {
+        query._id = jobId;
+    }
+
+    const job = await jobCol.findOne(query);
 
     if (!job) {
+      console.warn(`[JobStatus] Job ${jobId} NOT FOUND in collection ${jobCol.collectionName}`);
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
+    console.log(`[JobStatus] Found job ${jobId}, status: ${job.status}`);
     return NextResponse.json({
       jobId: job._id.toString(),
       status: job.status,

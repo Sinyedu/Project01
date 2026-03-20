@@ -10,6 +10,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { ZipFileProvider, FolderFileProvider } from "@/core/utils/zip";
 import { vaults, vaultItems } from "@/core/db/collections";
 import { JobQueue } from "@/core/jobs/client";
+import { getLocalMediaRoot, getPublicMediaBaseUrl } from "@/core/config/storage";
 
 cloudinary.config({ secure: true });
 
@@ -33,7 +34,7 @@ const DATE_PATTERNS = [
 export interface ZipOrganizeOptions {
   userId: string;
   zipPath: string;
-  outputMode: "cloudinary" | "local";
+  outputMode: "cloudinary" | "local" | "staging";
 }
 
 export interface ArchiveItem {
@@ -64,9 +65,10 @@ export interface ZipOrganizeResult {
   skippedFiles: number;
   organizedBy: "month";
   folders: { path: string; count: number }[];
-  outputMode: "cloudinary" | "local";
+  outputMode: "cloudinary" | "local" | "staging";
   downloadUrl?: string;
   archiveManifests: string[]; // Paths to manifests within the ZIP
+  stagingPath?: string; // Path to organizedDir in os.tmpdir()
 }
 
 export async function runZipOrganizePipeline(jobId: string, options: ZipOrganizeOptions): Promise<ZipOrganizeResult> {
@@ -194,17 +196,17 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
           let storageId = "";
 
           if (outputMode === "local") {
-            const vaultStorageDir = path.join(process.cwd(), "public", "media", "vault", userId, yearStr, monthStr);
+            const vaultStorageDir = path.join(getLocalMediaRoot(), "vault", userId, yearStr, monthStr);
             await mkdir(vaultStorageDir, { recursive: true });
             const vaultFilePath = path.join(vaultStorageDir, targetName);
             
             // Copy to vault permanent storage
             await fs.promises.copyFile(tempFilePath, vaultFilePath);
-            finalStoragePath = `/media/vault/${userId}/${yearStr}/${monthStr}/${targetName}`.replace(/\\/g, "/");
+            finalStoragePath = `${getPublicMediaBaseUrl()}/vault/${userId}/${yearStr}/${monthStr}/${targetName}`.replace(/\\/g, "/");
             storageId = finalStoragePath;
 
             await fs.promises.rename(tempFilePath, targetPath);
-          } else {
+          } else if (outputMode === "cloudinary") {
             // Upload with a generous 2-minute timeout to prevent hanging
             const uploadResult: any = await Promise.race([
               cloudinary.uploader.upload(tempFilePath, {
@@ -219,34 +221,41 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
             finalStoragePath = uploadResult.secure_url;
             storageId = uploadResult.public_id;
             await unlink(tempFilePath).catch(() => {});
+          } else if (outputMode === "staging") {
+            // Just move to the organized targetPath (which is already in organizedDir)
+            await fs.promises.rename(tempFilePath, targetPath);
+            finalStoragePath = `staged://${targetPath}`;
+            storageId = "staged";
           }
 
-          // Create Vault Item
-          const exif = mediaType === "image" ? await exifr.parse(targetPath).catch(() => ({})) : {};
-          const vaultItem = {
-            vaultId,
-            userId,
-            type: mediaType as "image" | "video",
-            originalFilename: baseName,
-            storagePath: finalStoragePath,
-            storageId,
-            thumbnailPath: mediaType === "image" ? finalStoragePath : undefined,
-            captureDate: date,
-            dateSource,
-            monthKey: format(date, "yyyy-MM"),
-            metadata: { exif },
-            checksum,
-            tags: [],
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
+          // Create Vault Item if not staging
+          if (outputMode !== "staging") {
+            const exif = mediaType === "image" ? await exifr.parse(targetPath).catch(() => ({})) : {};
+            const vaultItem = {
+                vaultId,
+                userId,
+                type: mediaType as "image" | "video",
+                originalFilename: baseName,
+                storagePath: finalStoragePath,
+                storageId,
+                thumbnailPath: mediaType === "image" ? finalStoragePath : undefined,
+                captureDate: date,
+                dateSource,
+                monthKey: format(date, "yyyy-MM"),
+                metadata: { exif },
+                checksum,
+                tags: [],
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            };
 
-          const viResult = await vaultItemCol.insertOne(vaultItem as any);
-          
-          // Enqueue background enrichment
-          await JobQueue.enqueue("enrich_vault_item", { 
-            vaultItemId: viResult.insertedId.toString(),
-          }, userId);
+            const viResult = await vaultItemCol.insertOne(vaultItem as any);
+            
+            // Enqueue background enrichment
+            await JobQueue.enqueue("enrich_vault_item", { 
+                vaultItemId: viResult.insertedId.toString(),
+            }, userId);
+          }
 
           const capsuleKey = relativeFolder;
           if (!capsules[capsuleKey]) {
@@ -311,6 +320,7 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
       downloadUrl,
       // Limit results list if it's somehow massive, though normally it's by month
       archiveManifests: Object.keys(capsules).slice(0, 100).map(p => path.join(p, "manifest.json").replace(/\\/g, "/")),
+      stagingPath: outputMode === "staging" ? organizedDir : undefined,
     };
 
     return result;
@@ -320,7 +330,13 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
     try {
       const p = provider as any;
       if (p.close) p.close();
-      if (fs.existsSync(organizedDir)) await rm(organizedDir, { recursive: true, force: true });
+      
+      // CRITICAL: If we are in staging mode, DO NOT delete the organized directory yet.
+      // It will be cleaned up by the finalize route.
+      if (outputMode !== "staging" && fs.existsSync(organizedDir)) {
+        await rm(organizedDir, { recursive: true, force: true });
+      }
+      
       if (fs.existsSync(zipPath)) await unlink(zipPath);
     } catch {
       // Ignore cleanup errors

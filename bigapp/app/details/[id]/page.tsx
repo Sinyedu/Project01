@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { platformConfigs } from "@/core/config/platforms";
 import { ShieldIcon, ArchiveIcon, CheckIcon, DownloadIcon } from "@/app/components/ui/Icons";
 
 export default function DetailsPage() {
@@ -72,7 +71,6 @@ export default function DetailsPage() {
   });
   const media = isArchive ? data.media : data.mediaRefs;
   const platform = data.platform || data.source;
-  const cfg = platformConfigs[platform as keyof typeof platformConfigs];
   const checksum = data.checksum || "Pending Verification";
 
   return (
@@ -84,7 +82,7 @@ export default function DetailsPage() {
               ← Back to The Vault
             </Link>
             <div className="flex items-center gap-3">
-               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-surface-border" style={{ color: cfg?.color }}>
+               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-surface-border text-muted">
                   <ArchiveIcon className="h-5 w-5" />
                </div>
                <h1 className="font-serif text-4xl tracking-tight text-foreground md:text-5xl">

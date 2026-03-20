@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { vaultItems, vaults } from "@/core/db/collections";
 import { auth } from "@clerk/nextjs/server";
-import { Filter } from "mongodb";
+import { Filter, ObjectId } from "mongodb";
 import { VaultItem } from "@/core/schema/vault";
 
 export async function GET(req: Request) {
@@ -18,10 +18,16 @@ export async function GET(req: Request) {
   const vaultCol = await vaults();
   const vault = await vaultCol.findOne({ userId });
   if (!vault) {
+    console.log(`[VaultAPI] No vault found for user: ${userId}`);
     return NextResponse.json([]);
   }
 
-  const filter: Filter<VaultItem> = { userId, vaultId: vault._id.toString() };
+  const vId = vault._id.toString();
+  // Support both string and ObjectId in DB
+  const filter: any = { 
+    userId, 
+    vaultId: { $in: [vId, new ObjectId(vId)] } 
+  };
 
   if (type && type !== "all") {
     filter.type = type as "image" | "video";
@@ -44,5 +50,6 @@ export async function GET(req: Request) {
   const col = await vaultItems();
   const items = await col.find(filter).sort({ captureDate: -1 }).toArray();
 
+  console.log(`[VaultAPI] Found ${items.length} items for vault: ${vId}`);
   return NextResponse.json(items);
 }
