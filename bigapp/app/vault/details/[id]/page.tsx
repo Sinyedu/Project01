@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArchiveIcon, CheckIcon, DownloadIcon, ShieldIcon } from "@/app/components/ui/Icons";
+import { ArchiveIcon, CheckIcon, DownloadIcon, ShieldIcon, StarIcon, PlusIcon } from "@/app/components/ui/Icons";
 
 export default function VaultItemDetailPage() {
   const { id } = useParams();
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [collections, setCollections] = useState<any[]>([]);
 
   useEffect(() => {
     if (id) {
@@ -19,8 +21,44 @@ export default function VaultItemDetailPage() {
           setLoading(false);
         })
         .catch(() => setLoading(false));
+      
+      fetchCollections();
     }
   }, [id]);
+
+  const fetchCollections = async () => {
+    const res = await fetch("/api/vault/collections");
+    const data = await res.json();
+    setCollections(data);
+  };
+
+  const addToCollection = async (collectionId: string) => {
+    setSaving(true);
+    await fetch(`/api/vault/collections/${collectionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ addItemId: id }),
+    });
+    fetchCollections();
+    setSaving(false);
+  };
+
+  const updateItem = async (updates: any) => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/vault/items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      const updated = await res.json();
+      setItem(updated);
+    } catch (err) {
+      console.error("Failed to update item:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -70,7 +108,70 @@ export default function VaultItemDetailPage() {
               </div>
            </div>
            
-           <div className="flex gap-4">
+           <div className="flex flex-wrap gap-4">
+              <button
+                onClick={() => updateItem({ isFavorite: !item.isFavorite })}
+                disabled={saving}
+                className={`archive-button flex items-center gap-2 ${item.isFavorite ? 'bg-accent text-white' : ''}`}
+              >
+                 <StarIcon className="h-4 w-4" fill={item.isFavorite ? "currentColor" : "none"} />
+                 {item.isFavorite ? "Unfavorite" : "Favorite"}
+              </button>
+
+              <button
+                onClick={() => updateItem({ isMonthCover: !item.isMonthCover })}
+                disabled={saving}
+                className={`archive-button flex items-center gap-2 ${item.isMonthCover ? 'bg-accent text-white' : ''}`}
+              >
+                 <ArchiveIcon className="h-4 w-4" />
+                 {item.isMonthCover ? "Pinned as Cover" : "Pin as Month Cover"}
+              </button>
+
+              <div className="relative group">
+                <button
+                  className="archive-button flex items-center gap-2"
+                >
+                   <PlusIcon className="h-4 w-4" />
+                   Add to Collection
+                </button>
+                <div className="absolute right-0 top-full mt-2 w-56 bg-surface border border-surface-border rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-2 space-y-1">
+                   {collections.map(col => {
+                     const isAdded = col.itemIds.includes(id);
+                     return (
+                       <button
+                         key={col._id}
+                         disabled={saving || isAdded}
+                         onClick={() => addToCollection(col._id)}
+                         className={`w-full text-left px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest flex items-center justify-between transition-colors ${isAdded ? 'bg-accent/10 text-accent cursor-default' : 'hover:bg-accent/5 text-foreground'}`}
+                       >
+                         {col.name}
+                         {isAdded && <CheckIcon className="h-3 w-3" />}
+                       </button>
+                     );
+                   })}
+                   <div className="h-px bg-surface-border my-2" />
+                   <button
+                     onClick={async () => {
+                        const name = prompt("New collection name:");
+                        if (name) {
+                          const res = await fetch("/api/vault/collections", {
+                            method: "POST",
+                            body: JSON.stringify({ name }),
+                            headers: { "Content-Type": "application/json" }
+                          });
+                          if (res.ok) {
+                            const newCol = await res.json();
+                            addToCollection(newCol._id);
+                          }
+                        }
+                     }}
+                     className="w-full text-left px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-accent hover:bg-accent/5 transition-colors"
+                   >
+                     + Create New
+                   </button>
+                </div>
+              </div>
+
               <a 
                 href={item.storagePath} 
                 download={item.originalFilename} 
@@ -139,6 +240,14 @@ export default function VaultItemDetailPage() {
                          <CheckIcon className="h-3 w-3" /> 100% INTEGRITY
                        </span>
                     </div>
+                    {item.metadata?.lat && (
+                      <div className="flex justify-between border-b border-surface-border/50 pb-3">
+                         <span className="text-[11px] font-bold uppercase tracking-widest text-muted">Location</span>
+                         <span className="text-[11px] font-black text-foreground uppercase">
+                           {item.metadata.lat.toFixed(4)}, {item.metadata.lng.toFixed(4)}
+                         </span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted">Storage</span>
                        <span className="text-[11px] font-black text-foreground uppercase">
@@ -150,7 +259,15 @@ export default function VaultItemDetailPage() {
 
               {item.metadata?.exif && Object.keys(item.metadata.exif).length > 0 && (
                 <section className="archive-card p-10 space-y-8 bg-surface">
-                   <p className="archive-label">Technical EXIF</p>
+                   <div className="flex justify-between items-center">
+                     <p className="archive-label">Technical EXIF</p>
+                     <button 
+                       onClick={() => console.log("Raw Metadata:", item.metadata)}
+                       className="text-[8px] font-black uppercase tracking-widest text-accent border border-accent/20 px-2 py-1 rounded hover:bg-accent/5"
+                     >
+                       Log to Console
+                     </button>
+                   </div>
                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                       {Object.entries(item.metadata.exif).map(([key, value]) => {
                         if (typeof value === 'object') return null;

@@ -33,6 +33,8 @@ export const NormalizedRecordSchema = z.object({
   data: RecordDataSchema,
   mediaRefs: z.array(z.string()).default([]), // URLs or Asset IDs
   checksum: z.string(), // For deduplication
+  isFavorite: z.boolean().default(false),
+  isImportant: z.boolean().default(false),
   tags: z.array(z.string()).default([]), // AI or manual tags
   embedding: z.array(z.number()).optional(), // Vector embedding
   createdAt: z.date().default(() => new Date()),

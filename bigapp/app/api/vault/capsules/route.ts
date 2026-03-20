@@ -23,6 +23,12 @@ export async function GET() {
         itemCount: { $sum: 1 },
         year: { $first: { $substr: ["$monthKey", 0, 4] } },
         month: { $first: { $substr: ["$monthKey", 5, 2] } },
+        pinnedCover: {
+          $max: {
+            $cond: [{ $eq: ["$isMonthCover", true] }, "$storagePath", null]
+          }
+        },
+        firstImage: { $first: "$storagePath" }
       }
     },
     { $sort: { _id: -1 } }
@@ -36,6 +42,7 @@ export async function GET() {
     year: r.year,
     month: r.month,
     itemCount: r.itemCount,
+    coverImage: r.pinnedCover || r.firstImage,
     title: new Date(Number(r.year), Number(r.month) - 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
   }));
 

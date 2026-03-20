@@ -13,6 +13,7 @@ import { RawSnapshot, MediaAsset, NormalizedProfile } from "@/core/schema/ingest
 import { Moment, MomentMembership, AIEnrichment } from "@/core/moments/schema";
 import { MemoryBundle, MemoryBundleSchema } from "@/core/schema/memoryBundle";
 import { Vault, VaultItem } from "@/core/schema/vault";
+import { VaultCollection } from "@/core/schema/collection";
 
 // Legacy collections (keep until fully migrated)
 export async function archives(): Promise<Collection<ArchiveItem>> {
@@ -81,4 +82,8 @@ export async function vaults(): Promise<Collection<Vault>> {
 
 export async function vaultItems(): Promise<Collection<VaultItem>> {
   return (await getDb()).collection<VaultItem>("vault_items");
+}
+
+export async function vaultCollections(): Promise<Collection<VaultCollection>> {
+  return (await getDb()).collection<VaultCollection>("vault_collections");
 }

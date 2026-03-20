@@ -39,6 +39,8 @@ export const MediaAssetSchema = z.object({
   height: z.number().optional(),
   duration: z.number().optional(),
   sha256: z.string().optional(),
+  isFavorite: z.boolean().default(false),
+  isImportant: z.boolean().default(false),
   discoveredFrom: z.string().optional(), // e.g. 'og:image', 'video'
   extractionConfidence: z.number().default(1.0),
   status: z.enum(["pending", "downloading", "completed", "failed"]),

@@ -47,6 +47,7 @@ export interface ArchiveItem {
   checksumSha256: string;
   importedAt: string;
   archivePath: string;
+  platformMetadata?: any;
 }
 
 export interface ArchiveManifest {
@@ -152,7 +153,29 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
           
           const checksum = hash.digest("hex");
 
-          // 2. Resolve Date
+          // 2. Look for platform sidecars (.json) in the entries list
+          let sidecarData: any = {};
+          const sidecarName = entry.path + ".json";
+          const altSidecarName = entry.path.replace(ext, ".json");
+          
+          // We can't easily look ahead in the provider without re-scanning or keeping a map
+          // Since we already scanned allEntries, let's use that!
+          const sidecarEntry = allEntries.find(e => e.path === sidecarName || e.path === altSidecarName);
+          if (sidecarEntry) {
+            try {
+              const sidecarStream = await sidecarEntry.stream();
+              const chunks: Buffer[] = [];
+              for await (const chunk of sidecarStream) {
+                chunks.push(Buffer.from(chunk));
+              }
+              sidecarData = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+              console.log(`[Job ${jobId}] Found sidecar for ${baseName}`);
+            } catch (err) {
+              console.warn(`[Job ${jobId}] Failed to parse sidecar for ${baseName}:`, err);
+            }
+          }
+
+          // 3. Resolve Date
           const { date, source: dateSource } = await resolveFileDateWithSource(tempFilePath);
           const yearStr = format(date, "yyyy");
           const monthStr = format(date, "MM - MMMM");
@@ -188,6 +211,7 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
             checksumSha256: checksum,
             importedAt: new Date().toISOString(),
             archivePath: archivePath.replace(/\\/g, "/"),
+            platformMetadata: sidecarData,
           };
 
           await writeFile(`${targetPath}.metadata.json`, JSON.stringify(metadata, null, 2));

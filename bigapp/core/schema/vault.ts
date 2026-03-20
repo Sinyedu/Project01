@@ -25,6 +25,9 @@ export const VaultItemSchema = z.object({
   monthKey: z.string(), // e.g., "2023-07"
   metadata: z.record(z.unknown()).default({}),
   checksum: z.string(),
+  isFavorite: z.boolean().default(false),
+  isImportant: z.boolean().default(false),
+  isMonthCover: z.boolean().default(false),
   tags: z.array(z.string()).default([]),
   caption: z.string().optional(),
   aiGenerated: z.boolean().default(false),

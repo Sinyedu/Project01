@@ -13,6 +13,7 @@ export async function GET(req: Request) {
   const type = searchParams.get("type");
   const month = searchParams.get("month");
   const year = searchParams.get("year");
+  const favorites = searchParams.get("favorites") === "true";
 
   // Get user's vault
   const vaultCol = await vaults();
@@ -31,6 +32,10 @@ export async function GET(req: Request) {
 
   if (type && type !== "all") {
     filter.type = type as "image" | "video";
+  }
+
+  if (favorites) {
+    filter.isFavorite = true;
   }
 
   if (month && year && month !== "all" && year !== "all") {

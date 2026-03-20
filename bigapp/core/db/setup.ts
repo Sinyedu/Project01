@@ -43,19 +43,35 @@ export async function setupIndexes() {
     { key: { sourceId: 1, source: 1 }, unique: true, sparse: true },
     { key: { sourceTimestamp: -1 } },
     { key: { checksum: 1 } },
+    { key: { isFavorite: 1 } },
+    { key: { isImportant: 1 } },
   ]);
 
   await db.collection("vaults").createIndexes([
     { key: { userId: 1 }, unique: true },
   ]);
 
-  await db.collection("vault_items").createIndexes([
-    { key: { userId: 1, vaultId: 1 } },
-    { key: { userId: 1, vaultId: 1, checksum: 1 }, unique: true },
-    { key: { captureDate: -1 } },
-    { key: { monthKey: 1 } },
-  ]);
+    await db.collection("media_assets").createIndexes([
+      { key: { userId: 1, source: 1 } },
+      { key: { sha256: 1 } },
+      { key: { isFavorite: 1 } },
+      { key: { isImportant: 1 } },
+    ]);
 
+    await db.collection("vault_items").createIndexes([
+      { key: { userId: 1, vaultId: 1 } },
+      { key: { userId: 1, vaultId: 1, checksum: 1 }, unique: true },
+      { key: { captureDate: -1 } },
+      { key: { monthKey: 1 } },
+      { key: { isFavorite: 1 } },
+      { key: { isImportant: 1 } },
+      { key: { isMonthCover: 1 } },
+      ]);
+
+      await db.collection("vault_collections").createIndexes([
+      { key: { userId: 1 } },
+      { key: { name: 1 } },
+      ]);
   /**
    * NOTE: Atlas Vector Search index must be created via Atlas UI or API.
    * Name: vector_index

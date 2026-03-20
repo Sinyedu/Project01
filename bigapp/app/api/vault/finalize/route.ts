@@ -81,6 +81,12 @@ export async function POST(req: NextRequest) {
                 await mkdir(vaultStorageDir, { recursive: true });
                 const vaultFilePath = path.join(vaultStorageDir, mediaFileName);
                 await fs.promises.copyFile(mediaFilePath, vaultFilePath);
+                
+                // Also copy the .metadata.json sidecar if it exists (which it should in staging)
+                const stagingMetadataPath = `${mediaFilePath}.metadata.json`;
+                if (fs.existsSync(stagingMetadataPath)) {
+                  await fs.promises.copyFile(stagingMetadataPath, `${vaultFilePath}.metadata.json`);
+                }
                 finalStoragePath = `${getPublicMediaBaseUrl()}/vault/${userId}/${yearMonth}/${mediaFileName}`.replace(/\\/g, "/");
                 storageId = finalStoragePath;
             } else {
@@ -96,8 +102,26 @@ export async function POST(req: NextRequest) {
             }
 
             const date = new Date(metadata.capturedAt);
-            const exif = metadata.mediaType === "image" ? await exifr.parse(mediaFilePath).catch(() => ({})) : {};
+            const exif = metadata.mediaType === "image" ? await exifr.parse(mediaFilePath, { gps: true }).catch(() => ({})) : {};
             const checksum = metadata.checksumSha256;
+
+            // Priority: 
+            // 1. EXIF data from file
+            // 2. Sidecar metadata from JSON (e.g. Google Photos geoData)
+            const lat = Number(
+              exif?.latitude ?? 
+              exif?.GPSLatitude ?? 
+              exif?.gps?.latitude ?? 
+              metadata?.platformMetadata?.geoData?.latitude ?? 
+              metadata?.platformMetadata?.location?.latitude
+            );
+            const lng = Number(
+              exif?.longitude ?? 
+              exif?.GPSLongitude ?? 
+              exif?.gps?.longitude ?? 
+              metadata?.platformMetadata?.geoData?.longitude ?? 
+              metadata?.platformMetadata?.location?.longitude
+            );
 
             const vaultItem = {
                 vaultId: vaultId.toString(),
@@ -110,7 +134,11 @@ export async function POST(req: NextRequest) {
                 captureDate: date,
                 dateSource: metadata.dateSource,
                 monthKey: format(date, "yyyy-MM"),
-                metadata: { exif },
+                metadata: { 
+                  exif, 
+                  lat: (!isNaN(lat) && lat !== 0) ? lat : undefined, 
+                  lng: (!isNaN(lng) && lng !== 0) ? lng : undefined 
+                },
                 checksum,
                 tags: [],
                 createdAt: new Date(),
