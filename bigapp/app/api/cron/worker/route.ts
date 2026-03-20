@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { JobQueue } from "@/core/jobs/client";
 import { processEnrichmentJob } from "@/core/imports/exports/pipeline";
-import { processInstagramMemoriesJob, processZipOrganizeJob } from "@/core/jobs/memoryWorker";
+import { processInstagramMemoriesJob, processZipOrganizeJob, processEnrichVaultItemJob } from "@/core/jobs/memoryWorker";
 
 export const dynamic = "force-dynamic"; // Ensure this isn't cached
 
@@ -17,6 +17,7 @@ export async function GET() {
       if (!job) job = await JobQueue.poll("enrich_ai");
       if (!job) job = await JobQueue.poll("process_instagram_memories");
       if (!job) job = await JobQueue.poll("organize_zip");
+      if (!job) job = await JobQueue.poll("enrich_vault_item");
       
       if (!job) break;
 
@@ -28,9 +29,11 @@ export async function GET() {
         await processInstagramMemoriesJob(job);
       } else if (job.type === "organize_zip") {
         await processZipOrganizeJob(job);
+      } else if (job.type === "enrich_vault_item") {
+        await processEnrichVaultItemJob(job);
       }
 
-      if (job.type !== "process_instagram_memories" && job.type !== "organize_zip") {
+      if (job.type !== "process_instagram_memories" && job.type !== "organize_zip" && job.type !== "enrich_vault_item") {
         await JobQueue.complete(job._id!.toString());
       }
       

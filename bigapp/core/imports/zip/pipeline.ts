@@ -8,6 +8,8 @@ import archiver from "archiver";
 import exifr from "exifr";
 import { v2 as cloudinary } from "cloudinary";
 import { ZipFileProvider, FolderFileProvider } from "@/core/utils/zip";
+import { vaults, vaultItems } from "@/core/db/collections";
+import { JobQueue } from "@/core/jobs/client";
 
 cloudinary.config({ secure: true });
 
@@ -71,6 +73,21 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
   const { userId, zipPath, outputMode } = options;
   const timestamp = Date.now();
   const organizedDir = path.join(os.tmpdir(), `organized_${userId}_${timestamp}`);
+
+  // Ensure Vault exists
+  const vaultCol = await vaults();
+  let vault = await vaultCol.findOne({ userId });
+  if (!vault) {
+    const vResult = await vaultCol.insertOne({
+      userId,
+      name: "My Vault",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+    vault = { _id: vResult.insertedId, userId, name: "My Vault" } as any;
+  }
+  const vaultId = vault!._id.toString();
+  const vaultItemCol = await vaultItems();
 
   let totalFiles = 0;
   let mediaFilesFound = 0;
@@ -173,13 +190,23 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
 
           await writeFile(`${targetPath}.metadata.json`, JSON.stringify(metadata, null, 2));
 
+          let finalStoragePath = "";
+
           if (outputMode === "local") {
+            const vaultStorageDir = path.join(process.cwd(), "public", "media", "vault", userId, yearStr, monthStr);
+            await mkdir(vaultStorageDir, { recursive: true });
+            const vaultFilePath = path.join(vaultStorageDir, targetName);
+            
+            // Copy to vault permanent storage
+            await fs.promises.copyFile(tempFilePath, vaultFilePath);
+            finalStoragePath = `/media/vault/${userId}/${yearStr}/${monthStr}/${targetName}`.replace(/\\/g, "/");
+
             await fs.promises.rename(tempFilePath, targetPath);
           } else {
             // Upload with a generous 2-minute timeout to prevent hanging
-            await Promise.race([
+            const uploadResult: any = await Promise.race([
               cloudinary.uploader.upload(tempFilePath, {
-                folder: `users/${userId}/${yearStr}/${monthStr}`,
+                folder: `users/${userId}/vault/${yearStr}/${monthStr}`,
                 resource_type: "auto",
                 use_filename: true,
                 unique_filename: true,
@@ -187,8 +214,35 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
               }),
               new Promise((_, reject) => setTimeout(() => reject(new Error("Cloudinary upload timeout")), 120000))
             ]);
+            finalStoragePath = uploadResult.secure_url;
             await unlink(tempFilePath).catch(() => {});
           }
+
+          // Create Vault Item
+          const exif = mediaType === "image" ? await exifr.parse(targetPath).catch(() => ({})) : {};
+          const vaultItem = {
+            vaultId,
+            userId,
+            type: mediaType as "image" | "video",
+            originalFilename: baseName,
+            storagePath: finalStoragePath,
+            thumbnailPath: mediaType === "image" ? finalStoragePath : undefined,
+            captureDate: date,
+            dateSource,
+            monthKey: format(date, "yyyy-MM"),
+            metadata: { exif },
+            checksum,
+            tags: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          const viResult = await vaultItemCol.insertOne(vaultItem as any);
+          
+          // Enqueue background enrichment
+          await JobQueue.enqueue("enrich_vault_item", { 
+            vaultItemId: viResult.insertedId.toString(),
+          }, userId);
 
           const capsuleKey = relativeFolder;
           if (!capsules[capsuleKey]) {

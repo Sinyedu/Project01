@@ -11,6 +11,7 @@ export interface AIService {
   generateEmbedding(text: string): Promise<number[]>;
   enrichText(text: string): Promise<AIEnrichmentResult>;
   generateTitleForImage(imageBuffer: Buffer, mimeType: string, date: string): Promise<string>;
+  generateCaptionAndTags(imageBuffer: Buffer, mimeType: string): Promise<{ caption: string, tags: string[] }>;
 }
 
 export class GeminiAIService implements AIService {
@@ -18,6 +19,41 @@ export class GeminiAIService implements AIService {
 
   constructor() {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+  }
+
+  async generateCaptionAndTags(imageBuffer: Buffer, mimeType: string): Promise<{ caption: string, tags: string[] }> {
+    try {
+      const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const prompt = `Analyze this image and provide:
+1. A short, descriptive caption (one sentence).
+2. A list of 5-10 relevant tags (comma separated).
+
+Format the response as:
+Caption: [caption]
+Tags: [tag1, tag2, ...]`;
+
+      const result = await model.generateContent([
+        prompt,
+        {
+          inlineData: {
+            data: imageBuffer.toString("base64"),
+            mimeType,
+          },
+        },
+      ]);
+
+      const text = result.response.text().trim();
+      const captionMatch = text.match(/Caption:\s*(.*)/i);
+      const tagsMatch = text.match(/Tags:\s*(.*)/i);
+
+      const caption = captionMatch ? captionMatch[1].trim() : "";
+      const tags = tagsMatch ? tagsMatch[1].split(",").map(t => t.trim()) : [];
+
+      return { caption, tags };
+    } catch (error) {
+      console.error("Failed to generate caption and tags for image:", error);
+      return { caption: "", tags: [] };
+    }
   }
 
   async generateTitleForImage(imageBuffer: Buffer, mimeType: string, date: string): Promise<string> {

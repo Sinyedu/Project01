@@ -16,6 +16,7 @@ export const JobTypeSchema = z.enum([
   "generate_thumbnails",
   "process_instagram_memories",
   "organize_zip",
+  "enrich_vault_item",
 ]);
 
 export const JobSchema = z.object({

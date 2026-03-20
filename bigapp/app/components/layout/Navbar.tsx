@@ -17,7 +17,7 @@ export function Navbar() {
           {isLoaded && isSignedIn ? (
             <>
               <Link
-                href="/dashboard"
+                href="/vault"
                 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted transition-colors hover:text-foreground"
               >
                 The Vault
