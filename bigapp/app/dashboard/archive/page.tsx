@@ -390,7 +390,7 @@ export default function PersonalArchivePage() {
                     <h3 className="font-serif text-4xl text-foreground mb-4">Vault Integration Complete</h3>
                     <p className="text-[15px] font-medium text-muted-foreground mb-12">Your capsule is now fully integrated and verified.</p>
                     <div className="flex flex-col gap-4">
-                      <Link href="/dashboard" className="archive-button w-full py-6 text-xs inline-block text-center">
+                      <Link href="/vault" className="archive-button w-full py-6 text-xs inline-block text-center">
                         View in The Vault →
                       </Link>
                       <button
