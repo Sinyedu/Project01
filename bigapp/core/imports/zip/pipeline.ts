@@ -191,6 +191,7 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
           await writeFile(`${targetPath}.metadata.json`, JSON.stringify(metadata, null, 2));
 
           let finalStoragePath = "";
+          let storageId = "";
 
           if (outputMode === "local") {
             const vaultStorageDir = path.join(process.cwd(), "public", "media", "vault", userId, yearStr, monthStr);
@@ -200,6 +201,7 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
             // Copy to vault permanent storage
             await fs.promises.copyFile(tempFilePath, vaultFilePath);
             finalStoragePath = `/media/vault/${userId}/${yearStr}/${monthStr}/${targetName}`.replace(/\\/g, "/");
+            storageId = finalStoragePath;
 
             await fs.promises.rename(tempFilePath, targetPath);
           } else {
@@ -215,6 +217,7 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
               new Promise((_, reject) => setTimeout(() => reject(new Error("Cloudinary upload timeout")), 120000))
             ]);
             finalStoragePath = uploadResult.secure_url;
+            storageId = uploadResult.public_id;
             await unlink(tempFilePath).catch(() => {});
           }
 
@@ -226,6 +229,7 @@ export async function runZipOrganizePipeline(jobId: string, options: ZipOrganize
             type: mediaType as "image" | "video",
             originalFilename: baseName,
             storagePath: finalStoragePath,
+            storageId,
             thumbnailPath: mediaType === "image" ? finalStoragePath : undefined,
             captureDate: date,
             dateSource,

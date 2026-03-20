@@ -227,6 +227,35 @@ function VaultContent() {
              </div>
            )}
         </div>
+
+        {/* Danger Zone */}
+        <div className="mt-32 pt-12 border-t border-surface-border/50">
+           <div className="archive-card border-red-500/10 bg-red-500/5 p-12 space-y-6">
+              <div>
+                 <h3 className="text-xl font-serif text-foreground">Danger Zone</h3>
+                 <p className="text-sm text-muted-foreground mt-2">
+                   Once you delete your vault, there is no going back. All media files in the archive will be permanently wiped from our storage.
+                 </p>
+              </div>
+              <button 
+                onClick={async () => {
+                  if (confirm("Are you absolutely sure? This will PERMANENTLY delete all your archived media and data. This action cannot be undone.")) {
+                    const res = await fetch("/api/vault/delete-all", { method: "POST" });
+                    const data = await res.json();
+                    if (data.success) {
+                      alert(data.message);
+                      router.push("/dashboard");
+                    } else {
+                      alert(data.error || "Failed to delete vault");
+                    }
+                  }
+                }}
+                className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+              >
+                Permanently Wipe My Vault
+              </button>
+           </div>
+        </div>
       </div>
     </div>
   );

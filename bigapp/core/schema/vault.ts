@@ -18,6 +18,7 @@ export const VaultItemSchema = z.object({
   type: z.enum(["image", "video"]),
   originalFilename: z.string(),
   storagePath: z.string(),
+  storageId: z.string().optional(), // Cloudinary public_id or local relative path
   thumbnailPath: z.string().optional(),
   captureDate: z.date(),
   dateSource: z.string(),
