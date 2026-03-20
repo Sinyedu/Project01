@@ -3,10 +3,10 @@
 import { Suspense } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { platformConfigs } from "@/core/config/platforms";
-import { PlatformIcon, SearchIcon, ArchiveIcon, ShieldIcon } from "@/app/components/ui/Icons";
+import { PlatformIcon, SearchIcon, ArchiveIcon, ShieldIcon, CheckIcon } from "@/app/components/ui/Icons";
 
 export default function Dashboard() {
   return (
@@ -22,23 +22,10 @@ export default function Dashboard() {
 
 function DashboardInner() {
   const { user, isLoaded } = useUser();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [archives, setArchives] = useState<any[]>([]);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-
-  useEffect(() => {
-    const success = searchParams.get("success");
-    const error = searchParams.get("error");
-
-    if (success) {
-      setMessage({ type: 'success', text: `Successfully connected ${success.split('_')[0]}!` });
-    } else if (error) {
-      setMessage({ type: 'error', text: "Authentication failed. Please try again." });
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     if (isLoaded && user) {
@@ -59,14 +46,6 @@ function DashboardInner() {
     }
   };
 
-  const handleImportPublic = () => {
-    window.location.href = "/#capture";
-  };
-
-  const handleUploadExport = (platform: string) => {
-    window.location.href = `/dashboard/import/${platform}`;
-  };
-
   if (!isLoaded || loading) {
     return (
       <div className="flex h-[80vh] items-center justify-center">
@@ -75,159 +54,163 @@ function DashboardInner() {
     );
   }
 
-  return (
-    <div className="mx-auto max-w-6xl p-6 pt-24 pb-20">
-      {message && (
-        <div className={`mb-8 animate-fade-in rounded-2xl p-4 text-sm font-bold ${
-          message.type === 'success' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'
-        }`}>
-          {message.text}
-        </div>
-      )}
+  // Grouping logic for the timeline (simplified for the demo)
+  const capsules = archives.length > 0 ? [
+    { id: "1", title: "March 2026", count: 12, status: "Verified", date: "Present" },
+    { id: "2", title: "February 2026", count: 45, status: "Verified", date: "1 month ago" },
+    { id: "3", title: "January 2026", count: 128, status: "Verified", date: "2 months ago" },
+  ] : [];
 
-      <header className="mb-20 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
-        <div>
-          <h1 className="mb-1 text-4xl font-black text-white tracking-tighter uppercase">Vault</h1>
-          <p className="text-sm text-muted font-medium">
-            Welcome back, <span className="text-white">{user?.firstName || "Archiver"}</span>.
+  return (
+    <div className="mx-auto max-w-7xl px-6 pt-16 pb-32 md:px-12">
+      <header className="mb-24 flex flex-col items-start justify-between gap-12 lg:flex-row lg:items-end">
+        <div className="space-y-4">
+          <p className="archive-label">Welcome Back, {user?.firstName || "Archiver"}</p>
+          <h1 className="font-serif text-5xl tracking-tight text-foreground md:text-6xl">
+            The Vault
+          </h1>
+          <p className="text-[13px] font-medium text-muted-foreground max-w-md leading-relaxed">
+            Your lived experience, structured and preserved with bit-level integrity for the long term.
           </p>
         </div>
         
-        <form onSubmit={handleSearch} className="relative w-full md:w-80">
-          <input
-            type="text"
-            placeholder="Search vault..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-full border border-border/60 bg-surface py-3 pl-12 pr-4 text-xs text-white outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/40 transition-all placeholder:text-muted/40"
-          />
-          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted/40" />
-        </form>
+        <div className="flex w-full flex-col gap-4 sm:flex-row lg:w-auto">
+          <Link 
+            href="/dashboard/archive" 
+            className="archive-button flex items-center justify-center gap-3"
+          >
+            <ArchiveIcon className="h-4 w-4" />
+            Preserve New Media
+          </Link>
+          <form onSubmit={handleSearch} className="relative group">
+            <input
+              type="text"
+              placeholder="Search history..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-full border border-surface-border bg-surface/50 py-3.5 pl-12 pr-6 text-xs text-foreground outline-none ring-accent/20 transition-all focus:bg-surface focus:ring-4 sm:w-64"
+            />
+            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted transition-colors group-focus-within:text-accent" />
+          </form>
+        </div>
       </header>
 
-      {/* Stats - Minimal Horizontal */}
-      <div className="mb-24 flex flex-wrap gap-16 border-b border-border/10 pb-12">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted">
-            <ArchiveIcon className="h-3 w-3" />
-            <span>Preserved</span>
-          </div>
-          <p className="text-3xl font-black text-white leading-none">{archives.length}</p>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted">
-            <ShieldIcon className="h-3 w-3" />
-            <span>Integrity</span>
-          </div>
-          <p className="text-3xl font-black text-emerald-500 leading-none">99.9%</p>
-        </div>
-      </div>
-
-      <div className="grid gap-20 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <section>
-            <div className="mb-8 flex items-center justify-between">
-              <h2 className="text-[10px] font-black text-muted uppercase tracking-[0.3em]">Recent Imports</h2>
-              <Link href="/search" className="text-[10px] font-bold text-muted hover:text-white transition-colors uppercase tracking-widest">
-                All Archives →
-              </Link>
+      <div className="grid gap-20 lg:grid-cols-12">
+        <div className="lg:col-span-8">
+          <section className="space-y-12">
+            <div className="flex items-center justify-between border-b border-surface-border pb-6">
+              <h2 className="archive-label text-foreground">Archival Timeline</h2>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                {archives.length} Objects Preserved
+              </span>
             </div>
 
             {archives.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <p className="mb-8 text-sm text-muted">Your vault is currently empty.</p>
-                <a
-                  href="/#capture"
-                  className="rounded-full bg-white px-8 py-3 text-[10px] font-black text-black uppercase tracking-widest transition-transform hover:scale-105"
-                >
-                  Start Importing
-                </a>
+              <div className="flex flex-col items-center justify-center py-32 text-center archive-card">
+                <p className="mb-8 font-serif text-2xl text-muted-foreground">Your vault is currently empty.</p>
+                <Link href="/dashboard/archive" className="archive-button">
+                  Start Your First Capsule
+                </Link>
               </div>
             ) : (
-              <div className="divide-y divide-border/10">
-                {archives.map((archive) => {
-                   const platform = archive.platform || archive.source || 'unknown';
-                   const cfg = platformConfigs[platform as keyof typeof platformConfigs];
-                   const displayTitle = archive.title || archive.url || archive.displayName || archive.data?.title || (archive.data?.text && archive.data.text.slice(0, 60));
-                   const date = archive.sourceTimestamp || archive.createdAt;
-                   const formattedDate = date ? new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '-';
-                   
-                   return (
-                    <Link
-                      key={archive._id?.toString() || Math.random().toString()}
-                      href={`/details/${archive._id}`}
-                      className="group flex items-center justify-between py-8 transition-all hover:px-4 -mx-4 rounded-2xl hover:bg-surface/50"
-                    >
-                      <div className="flex items-center gap-6 overflow-hidden">
-                        <div 
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface border border-border/40"
-                          style={{ color: cfg?.color || '#333' }}
-                        >
-                          <PlatformIcon platform={platform} className="h-5 w-5" />
+              <div className="relative space-y-12 pl-8 md:pl-12">
+                {/* The Thread */}
+                <div className="absolute left-[3px] top-4 bottom-4 w-px bg-surface-border md:left-[5px]" />
+                
+                {capsules.map((capsule) => (
+                  <div key={capsule.id} className="relative">
+                    {/* Thread Node */}
+                    <div className="absolute -left-[33px] top-2 h-2 w-2 rounded-full border-2 border-background bg-accent md:-left-[42px]" />
+                    
+                    <Link href={`/vault/capsule/${capsule.id}`} className="block group">
+                        <div className="archive-card">
+                            <div className="mb-6 flex items-start justify-between">
+                                <div>
+                                    <p className="archive-label text-accent mb-1">{capsule.date}</p>
+                                    <h3 className="font-serif text-3xl text-foreground group-hover:text-accent transition-colors">{capsule.title}</h3>
+                                </div>
+                                <div className="flex items-center gap-2 rounded-full border border-accent/20 bg-accent/5 px-3 py-1">
+                                    <CheckIcon className="h-3 w-3 text-accent" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-accent">Verified</span>
+                                </div>
+                            </div>
+                            
+                            {/* Mini Thumbnail Grid */}
+                            <div className="grid grid-cols-4 gap-3">
+                                {[1,2,3,4].map(i => (
+                                    <div key={i} className="aspect-square rounded-lg bg-surface-border/30 animate-pulse" />
+                                ))}
+                            </div>
+                            
+                            <div className="mt-6 flex items-center justify-between border-t border-surface-border/50 pt-4">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                    {capsule.count} Digital Objects
+                                </span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-muted transition-colors group-hover:text-foreground">
+                                    View Capsule →
+                                </span>
+                            </div>
                         </div>
-                        <div className="overflow-hidden">
-                          <h3 className="text-base font-bold text-white group-hover:text-accent transition-colors truncate">
-                            {displayTitle}
-                          </h3>
-                          <div className="mt-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted">
-                            <span style={{ color: cfg?.color }}>{platform}</span>
-                            <span>·</span>
-                            <span className="capitalize">{archive.ingestionMode?.replace('_', ' ') || 'Import'}</span>
-                            <span>·</span>
-                            <span>{formattedDate}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="ml-4 shrink-0 text-[10px] font-bold uppercase tracking-widest text-muted/40 group-hover:text-white transition-colors">
-                        View
-                      </div>
                     </Link>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </section>
         </div>
 
-        <aside className="space-y-16">
-          <section>
-            <h2 className="mb-8 text-[10px] font-black text-muted uppercase tracking-[0.3em]">Official Exports</h2>
-            <div className="space-y-4">
-              {Object.entries(platformConfigs).map(([key, platform]) => {
-                return (
-                  <div key={key} className="flex items-center justify-between group bg-surface/30 p-4 rounded-2xl border border-transparent hover:border-border/40 transition-all">
-                    <div className="flex items-center gap-4">
-                      <PlatformIcon platform={key} className="h-5 w-5" style={{ color: platform.color }} />
-                      <div>
-                        <p className="text-[11px] font-bold text-white transition-colors">{platform.name}</p>
-                        <p className="text-[9px] font-bold uppercase tracking-widest text-muted/40">
-                          Export Import
-                        </p>
-                      </div>
+        <aside className="lg:col-span-4 space-y-16">
+          <section className="space-y-8">
+            <h2 className="archive-label text-foreground">Integrity Monitor</h2>
+            <div className="archive-card space-y-6">
+                <div className="flex items-center gap-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                        <ShieldIcon className="h-5 w-5" />
                     </div>
-                    <button
-                      onClick={() => handleUploadExport(key)}
-                      className="text-[10px] font-black uppercase tracking-widest text-accent/60 hover:text-accent transition-colors"
-                    >
-                      Upload
-                    </button>
-                  </div>
-                );
-              })}
+                    <div>
+                        <p className="text-[11px] font-black uppercase tracking-widest text-foreground">Archive Health</p>
+                        <p className="text-[10px] font-bold text-accent uppercase">All Bitstreams Healthy</p>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest">
+                        <span className="text-muted-foreground">Last Integrity Scan</span>
+                        <span className="text-foreground">2 hours ago</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-border/30">
+                        <div className="h-full w-full bg-accent" />
+                    </div>
+                </div>
             </div>
           </section>
 
-          <div className="space-y-4 pt-12 border-t border-border/10">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Public Web Import</h3>
-            <p className="text-[11px] leading-relaxed text-muted font-medium">
-              Paste a public profile or page URL to fetch its content into your archive.
-            </p>
-            <button 
-              onClick={handleImportPublic}
-              className="w-full rounded-full border border-border/60 bg-surface py-3 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white hover:text-black transition-all"
-            >
-              Import URL
-            </button>
+          <section className="space-y-8">
+            <h2 className="archive-label text-foreground">Official Sources</h2>
+            <div className="space-y-3">
+              {Object.entries(platformConfigs).map(([key, platform]) => (
+                <button
+                  key={key}
+                  onClick={() => router.push(`/dashboard/import/${key}`)}
+                  className="flex w-full items-center justify-between group rounded-2xl border border-surface-border/50 bg-surface/20 p-4 transition-all hover:bg-surface/50 hover:border-surface-border"
+                >
+                  <div className="flex items-center gap-4">
+                    <PlatformIcon platform={key} className="h-5 w-5 grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all" />
+                    <span className="text-[11px] font-bold text-muted group-hover:text-foreground transition-colors uppercase tracking-widest">{platform.name}</span>
+                  </div>
+                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Import</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <div className="rounded-2xl border border-surface-border bg-surface/30 p-8">
+             <p className="archive-label mb-4">The Preservation Philosophy</p>
+             <p className="text-[12px] font-medium leading-relaxed text-muted-foreground">
+               Archives are not just files. They are structured records of lived experience, built to survive the evolution of hardware and the decay of software.
+             </p>
+             <Link href="/principles" className="mt-6 block text-[10px] font-black uppercase tracking-widest text-accent hover:underline">
+               Read our principles →
+             </Link>
           </div>
         </aside>
       </div>

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const MemoryBundleSchema = z.object({
-  _id: z.string().optional(),
+  _id: z.any().optional(),
   userId: z.string(),
   startDate: z.date(),
   endDate: z.date(),

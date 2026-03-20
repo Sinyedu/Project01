@@ -1,10 +1,17 @@
 export const PLATFORMS = [
-  "instagram",
   "facebook",
+  "instagram",
   "twitter",
+  "tiktok",
+  "linkedin",
   "whatsapp",
   "telegram",
-  "tiktok",
+  "email",
+  "sms",
+  "photos",
+  "contacts",
+  "x",
+  "other",
 ] as const;
 
 export type Platform = (typeof PLATFORMS)[number];

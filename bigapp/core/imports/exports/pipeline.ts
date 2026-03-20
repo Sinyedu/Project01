@@ -21,7 +21,7 @@ export async function importOfficialExport(
   connectionId: string,
   userId: string,
   fileName: string,
-  fileInput: string,
+  fileInput: string | Buffer,
 ): Promise<SnapshotJob> {
   const connCol = await connections();
   const conn = await connCol.findOne({ _id: new ObjectId(connectionId), userId } as any);
@@ -33,7 +33,7 @@ export async function importOfficialExport(
   const job: SnapshotJob = {
     userId,
     connectionId,
-    source: conn.platform,
+    platform: conn.platform,
     mode: "export_upload" as any,
     phase: "parsing",
     progress: { processedItems: 0, mediaQueued: 0, mediaComplete: 0 },
@@ -111,7 +111,7 @@ export async function importOfficialExport(
 
       if (batch.length >= BATCH_SIZE) {
         try {
-          await recCol.insertMany(batch, { ordered: false });
+          await recCol.insertMany(batch as any, { ordered: false });
         } catch (e: any) {
           if (e.code !== 11000) throw e;
         }
@@ -123,10 +123,9 @@ export async function importOfficialExport(
       }
     }
 
-    // Insert remaining
     if (batch.length > 0) {
       try {
-        await recCol.insertMany(batch, { ordered: false });
+        await recCol.insertMany(batch as any, { ordered: false });
       } catch (e: any) {
         if (e.code !== 11000) throw e;
       }

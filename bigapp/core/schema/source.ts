@@ -19,10 +19,13 @@ export const PlatformSchema = z.enum([
 export const IngestionModeSchema = z.enum([
   "public_import",
   "export_import",
+  "portability_push",
+  "api_pull",
+  "organize",
 ]);
 
 export const SourceConnectionSchema = z.object({
-  _id: z.string().optional(), // MongoDB ID
+  _id: z.any().optional(),
   userId: z.string(),
   platform: PlatformSchema,
   mode: IngestionModeSchema,

@@ -1,63 +1,75 @@
 @import "tailwindcss";
 
-:root {
-  --background: #0c0c0e;
-  --foreground: #fafafa;
+@theme {
+  /* Scandinavian Archive Palette */
+  --color-background: hsl(40 14% 97%); /* #F9F8F6 (Bone) */
+  --color-foreground: hsl(0 0% 10%);    /* #1A1A1A (Charcoal) */
+  
+  --color-surface: hsl(36 12% 91%);    /* #EAE7E2 (Parchment) */
+  --color-surface-border: hsl(36 10% 85%);
+  
+  --color-muted: hsl(215 14% 46%);     /* #6B7280 (Slate) */
+  --color-muted-foreground: hsl(215 14% 35%);
+  
+  --color-accent: hsl(140 11% 33%);    /* #4A5D4E (Sage) */
+  --color-accent-foreground: hsl(40 14% 97%);
+  
+  --color-destructive: hsl(18 30% 48%); /* #9E6B55 (Terracotta) */
+  --color-destructive-foreground: hsl(40 14% 97%);
+
+  --color-border: hsl(36 10% 88%);
+  --color-input: hsl(36 10% 88%);
+  --color-ring: hsl(140 11% 33%);
+
+  --radius-xl: 1rem;
+  --radius-lg: 0.5rem;
+  --radius-md: 0.25rem;
+  
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-accent: #f59e0b;
-  --color-surface: #141417;
-  --color-surface-bright: #1c1c1f;
-  --color-muted: #a1a1aa;
-  --color-border: #27272a;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-fade-in: fade-in 0.4s ease both;
-  --animate-slide-down: slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    @apply selection:bg-accent/20;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+  }
 }
 
-.section-gap {
-  margin-top: 10rem;
-  margin-bottom: 10rem;
+@layer components {
+  .archive-card {
+    @apply rounded-xl border border-surface-border bg-surface/50 p-6 shadow-sm transition-all hover:bg-surface hover:shadow-md;
+  }
+  
+  .archive-label {
+    @apply text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground;
+  }
+  
+  .archive-button {
+    @apply inline-flex items-center justify-center rounded-full bg-foreground px-8 py-3 text-[10px] font-black uppercase tracking-widest text-background transition-all hover:scale-[1.02] hover:bg-foreground/90 active:scale-95;
+  }
+
+  .archive-button-outline {
+    @apply inline-flex items-center justify-center rounded-full border border-foreground/20 bg-transparent px-8 py-3 text-[10px] font-black uppercase tracking-widest text-foreground transition-all hover:border-foreground/40 hover:bg-foreground/5 active:scale-95;
+  }
 }
 
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
 }
-
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+::-webkit-scrollbar-track {
+  background: var(--color-background);
 }
-
-@keyframes slide-down {
-  from { opacity: 0; transform: translateY(-12px); }
-  to { opacity: 1; transform: translateY(0); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-border);
+  border-radius: 10px;
 }
-
-@keyframes gradient-x {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
 }
-
-.gradient-text {
-  background: linear-gradient(to right, #f59e0b, #f97316, #ef4444, #f59e0b);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: gradient-x 8s linear infinite;
-}
-
-.delay-1 { animation-delay: 100ms; }
-.delay-2 { animation-delay: 200ms; }
-.delay-3 { animation-delay: 300ms; }
-.delay-4 { animation-delay: 400ms; }
-.delay-5 { animation-delay: 500ms; }
-.delay-6 { animation-delay: 600ms; }
-.delay-7 { animation-delay: 700ms; }

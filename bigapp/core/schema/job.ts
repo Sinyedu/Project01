@@ -15,10 +15,11 @@ export const JobTypeSchema = z.enum([
   "index_search",  // Update search index
   "generate_thumbnails",
   "process_instagram_memories",
+  "organize_zip",
 ]);
 
 export const JobSchema = z.object({
-  _id: z.string().optional(),
+  _id: z.any().optional(),
   userId: z.string(),
   type: JobTypeSchema,
   status: JobStatusSchema,

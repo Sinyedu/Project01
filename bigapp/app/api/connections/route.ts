@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { connections } from "@/core/db";
 import { isSource } from "@/core/types";
 import { getConnector } from "@/core/connectors/registry";
-import type { ConnectorMode, SourceConnection } from "@/core/types";
+import type { IngestionMode, SourceConnection } from "@/core/types";
 
 export async function GET() {
   const { userId } = await auth();
@@ -19,26 +19,19 @@ export async function POST(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { source, mode } = body as { source: string; mode?: ConnectorMode };
+  const { source, mode } = body as { source: string; mode?: IngestionMode };
 
   if (!source || !isSource(source)) {
     return NextResponse.json({ error: "Valid source required" }, { status: 400 });
   }
 
   const connector = getConnector(source);
-  const resolvedMode = mode ?? connector.modes[0];
-
-  if (!connector.modes.includes(resolvedMode)) {
-    return NextResponse.json(
-      { error: `Mode "${resolvedMode}" not supported for ${source}. Use: ${connector.modes.join(", ")}` },
-      { status: 400 },
-    );
-  }
+  const resolvedMode = mode ?? (connector.modes[0] as IngestionMode);
 
   const now = new Date();
   const conn: SourceConnection = {
     userId,
-    source,
+    platform: source as any,
     mode: resolvedMode,
     status: "active",
     createdAt: now,
@@ -46,7 +39,7 @@ export async function POST(req: NextRequest) {
   };
 
   const col = await connections();
-  const result = await col.insertOne(conn);
+  const result = await col.insertOne(conn as any);
 
   return NextResponse.json(
     { _id: result.insertedId, ...conn, supportedModes: connector.modes },

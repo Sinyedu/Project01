@@ -6,7 +6,7 @@ interface PlatformConfig {
   color: string;
 }
 
-export const platformConfigs: Record<Platform, PlatformConfig> = {
+export const platformConfigs: Partial<Record<Platform, PlatformConfig>> = {
   instagram: {
     name: "Instagram",
     supportedContentTypes: ["post", "story", "message", "media", "profile"],
@@ -21,6 +21,11 @@ export const platformConfigs: Record<Platform, PlatformConfig> = {
     name: "Twitter / X",
     supportedContentTypes: ["post", "message", "media", "profile"],
     color: "#1DA1F2",
+  },
+  x: {
+    name: "X",
+    supportedContentTypes: ["post", "message", "media", "profile"],
+    color: "#000000",
   },
   whatsapp: {
     name: "WhatsApp",

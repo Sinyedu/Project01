@@ -7,15 +7,20 @@ import { telegramConnector } from "./telegram";
 import { whatsappConnector } from "./whatsapp";
 import { tiktokConnector } from "./tiktok";
 
-const registry: Record<Source, PlatformConnector> = {
+const registry: Partial<Record<Source, PlatformConnector>> = {
   instagram: instagramConnector,
   facebook: facebookConnector,
   x: xConnector,
+  twitter: xConnector, // Alias
   telegram: telegramConnector,
   whatsapp: whatsappConnector,
   tiktok: tiktokConnector,
 };
 
 export function getConnector(source: Source): PlatformConnector {
-  return registry[source];
+  const connector = registry[source];
+  if (!connector) {
+    throw new Error(`No connector implemented for platform: ${source}`);
+  }
+  return connector;
 }

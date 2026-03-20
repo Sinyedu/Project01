@@ -3,7 +3,7 @@ import type { Platform, IngestionMode } from "./index";
 export type ConnectionStatus = "active" | "revoked" | "error" | "completed";
 
 export interface SourceConnection {
-  _id?: string;
+  _id?: any;
   userId: string;
   platform: Platform;
   mode: IngestionMode;
@@ -19,6 +19,7 @@ export type SnapshotPhase =
   | "requesting"
   | "downloading"
   | "parsing"
+  | "processing"
   | "normalizing"
   | "media"
   | "indexing"
@@ -26,7 +27,7 @@ export type SnapshotPhase =
   | "failed";
 
 export interface SnapshotJob {
-  _id?: string;
+  _id?: any;
   userId: string;
   connectionId: string;
   platform: Platform;

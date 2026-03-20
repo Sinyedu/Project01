@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const RawSnapshotSchema = z.object({
-  _id: z.string().optional(),
+  _id: z.any().optional(),
   userId: z.string(),
   source: z.string(),
   sourceUrl: z.string(),
@@ -15,13 +15,19 @@ export const RawSnapshotSchema = z.object({
 export type RawSnapshot = z.infer<typeof RawSnapshotSchema>;
 
 export const MediaAssetSchema = z.object({
-  _id: z.string().optional(),
+  _id: z.any().optional(),
   userId: z.string(),
   ownerEntityId: z.string().optional(),
   source: z.string(),
   sourceUrl: z.string(), // e.g. the url of the post/profile it came from
   originalRemoteUrl: z.string(),
-  ingestionMode: z.enum(["public_import", "export_import"]).default("public_import"),
+  ingestionMode: z.enum([
+    "public_import",
+    "export_import",
+    "portability_push",
+    "api_pull",
+    "organize",
+  ]).default("public_import"),
   storageProvider: z.enum(["local", "cloudinary", "pending"]),
   storageKey: z.string().optional(),
   secureUrl: z.string().optional(), // local path or cloudinary url
@@ -43,11 +49,17 @@ export const MediaAssetSchema = z.object({
 export type MediaAsset = z.infer<typeof MediaAssetSchema>;
 
 export const NormalizedProfileSchema = z.object({
-  _id: z.string().optional(),
+  _id: z.any().optional(),
   userId: z.string(),
   source: z.string(),
   sourceUrl: z.string(),
-  ingestionMode: z.enum(["public_import", "export_import"]).default("public_import"),
+  ingestionMode: z.enum([
+    "public_import",
+    "export_import",
+    "portability_push",
+    "api_pull",
+    "organize",
+  ]).default("public_import"),
   externalId: z.string().optional(),
   displayName: z.string().optional(),
   title: z.string().optional(),

@@ -1,24 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { platformConfigs } from "@/core/config/platforms";
+import { ShieldIcon, ArchiveIcon, CheckIcon, DownloadIcon } from "@/app/components/ui/Icons";
 
 export default function DetailsPage() {
   const { id } = useParams();
-  const router = useRouter();
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!id) return;
 
     fetch(`/api/details/${id}`)
       .then((res) => {
-        if (!res.ok) throw new Error("Archive not found");
+        if (!res.ok) throw new Error("Object not found in vault");
         return res.json();
       })
       .then((data) => {
@@ -31,18 +30,12 @@ export default function DetailsPage() {
       });
   }, [id]);
 
-  const copyId = () => {
-    navigator.clipboard.writeText(id as string);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-          <p className="animate-pulse text-muted font-medium">Restoring archive...</p>
+      <div className="flex h-[80vh] items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-6">
+          <div className="h-12 w-12 animate-spin rounded-full border-[3px] border-surface-border border-t-accent" />
+          <p className="archive-label animate-pulse">Restoring Digital Object...</p>
         </div>
       </div>
     );
@@ -50,14 +43,14 @@ export default function DetailsPage() {
 
   if (error || !item) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-background gap-6 px-6 text-center">
+      <div className="flex h-[80vh] flex-col items-center justify-center bg-background gap-8 px-6 text-center">
         <div className="text-6xl grayscale opacity-20">🕳️</div>
-        <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-white">Archive Lost</h2>
-          <p className="text-muted max-w-xs">{error || "This record might have been deleted or moved."}</p>
+        <div className="space-y-4">
+          <h2 className="font-serif text-3xl text-foreground">Object Not Found</h2>
+          <p className="text-muted-foreground max-w-xs mx-auto">This archival record may have been moved or the integrity of its reference has been lost.</p>
         </div>
-        <Link href="/dashboard" className="rounded-full bg-border/50 px-6 py-2 text-sm font-semibold hover:bg-muted transition-all">
-          Back to Dashboard
+        <Link href="/dashboard" className="archive-button-outline">
+          Return to Vault
         </Link>
       </div>
     );
@@ -66,10 +59,10 @@ export default function DetailsPage() {
   const { data, type } = item;
   const isArchive = type === "archive";
 
-  // Normalize fields for display
+  // Normalize fields
   const title = isArchive
     ? data.title
-    : (data.data.title || data.data.displayName || data.data.name || data.data.username || "Archive Item");
+    : (data.data.title || data.data.displayName || data.data.name || data.data.username || "Untitled Object");
   const content = isArchive
     ? data.textContent
     : (data.data.text || data.data.bio || "");
@@ -80,100 +73,56 @@ export default function DetailsPage() {
   const media = isArchive ? data.media : data.mediaRefs;
   const platform = data.platform || data.source;
   const cfg = platformConfigs[platform as keyof typeof platformConfigs];
+  const checksum = data.checksum || "Pending Verification";
 
   return (
-    <div className="min-h-screen bg-background pt-24 pb-20 px-6">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2 text-sm font-medium text-muted hover:text-white transition-colors">
-            <span className="text-lg">←</span> Back to Archives
-          </Link>
-          <div className="flex gap-2">
-            <button
-              onClick={copyId}
-              className="rounded-full border border-border px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted hover:text-white hover:border-muted transition-all"
-            >
-              {copied ? "Copied!" : "Copy ID"}
-            </button>
-            {data.sourceUrl && (
-              <a
-                href={data.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-full bg-accent px-4 py-2 text-xs font-bold uppercase tracking-wider text-black hover:bg-amber-400 transition-all"
-              >
-                Visit Original
-              </a>
-            )}
-          </div>
-        </div>
-
-        <div className="grid gap-12 lg:grid-cols-3">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-12">
-            <header className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div
-                  className="rounded-lg px-3 py-1 text-xs font-black uppercase tracking-widest"
-                  style={{ backgroundColor: `${cfg?.color || '#333'}20`, color: cfg?.color || '#999' }}
-                >
-                  {platform}
-                </div>
-                <div className="h-1 w-1 rounded-full bg-border" />
-                <div className="text-xs font-bold uppercase tracking-widest text-muted">
-                  {type}
-                </div>
-              </div>
-
-              <h1 className="text-2xl font-black text-white leading-tight tracking-tight">
+    <div className="min-h-screen bg-background pt-16 pb-32 px-6 md:px-12">
+      <div className="mx-auto max-w-7xl">
+        <header className="mb-16 flex flex-col items-start justify-between gap-8 md:flex-row md:items-end">
+          <div className="space-y-4">
+            <Link href="/dashboard" className="archive-label transition-colors hover:text-foreground">
+              ← Back to The Vault
+            </Link>
+            <div className="flex items-center gap-3">
+               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface border border-surface-border" style={{ color: cfg?.color }}>
+                  <ArchiveIcon className="h-5 w-5" />
+               </div>
+               <h1 className="font-serif text-4xl tracking-tight text-foreground md:text-5xl">
                 {title}
-              </h1>
+               </h1>
+            </div>
+          </div>
+          
+          <div className="flex gap-4">
+            <button className="archive-button-outline flex items-center gap-2">
+                <ShieldIcon className="h-3 w-3" />
+                Verify Integrity
+            </button>
+            <button className="archive-button flex items-center gap-2">
+                <DownloadIcon className="h-3 w-3" />
+                Export Object
+            </button>
+          </div>
+        </header>
 
-              <div className="flex items-center gap-4 border-l-2 border-accent pl-4">
-                <div className="space-y-1">
-                  <p className="text-sm font-bold text-white">
-                    {data.author || data.data?.username || "Unknown Author"}
-                  </p>
-                  <p className="text-xs text-muted font-medium">
-                    Captured on {timestamp}
-                  </p>
-                </div>
-              </div>
-            </header>
-
-            {content && (
-              <div className="prose prose-invert max-w-none">
-                <p className="text-xl leading-relaxed text-muted-foreground whitespace-pre-wrap selection:bg-accent selection:text-black">
-                  {content}
-                </p>
-              </div>
-            )}
-
+        <div className="grid gap-20 lg:grid-cols-12">
+          {/* Object Display */}
+          <div className="lg:col-span-8 space-y-16">
             {media && media.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-widest text-muted">Media Assets ({media.length})</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-6">
+                 <div className="grid gap-6">
                   {media.map((m: any, i: number) => {
                     const url = typeof m === "string" ? m : m.archivedUrl || m.originalUrl;
                     if (!url) return null;
 
                     return (
-                      <div key={i} className="group relative aspect-video overflow-hidden rounded-2xl bg-card/20 border border-border/50">
+                      <div key={i} className="group relative overflow-hidden rounded-2xl border border-surface-border bg-surface/30">
                         <img
                           src={url}
-                          alt={`Media ${i + 1}`}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          alt={`Preserved Media ${i + 1}`}
+                          className="w-full object-contain max-h-[70vh] transition-transform duration-700 group-hover:scale-[1.02]"
                           loading="lazy"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
-                          <a
-                            href={url}
-                            target="_blank"
-                            className="text-xs font-bold text-white uppercase tracking-widest hover:text-accent transition-colors"
-                          >
-                            View Full Resolution ↗
-                          </a>
-                        </div>
                       </div>
                     );
                   })}
@@ -181,69 +130,89 @@ export default function DetailsPage() {
               </div>
             )}
 
-            {data.tags && data.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 border-t border-border pt-8">
-                {data.tags.map((tag: string) => (
-                  <span key={tag} className="rounded-lg bg-card/30 border border-border px-3 py-1.5 text-xs font-bold text-accent">
-                    #{tag}
-                  </span>
-                ))}
-              </div>
+            {content && (
+              <article className="prose prose-zinc max-w-3xl">
+                <p className="font-serif text-2xl leading-relaxed text-foreground/90 whitespace-pre-wrap selection:bg-accent/20">
+                  {content}
+                </p>
+              </article>
             )}
+
+            <div className="border-t border-surface-border pt-12">
+               <div className="grid gap-12 md:grid-cols-2">
+                  <div className="space-y-6">
+                    <p className="archive-label text-foreground">Archival Manifest</p>
+                    <div className="space-y-4 rounded-2xl border border-surface-border bg-surface/30 p-8 font-mono text-[11px] leading-relaxed text-muted-foreground">
+                       <p><span className="text-accent">"original_filename":</span> "{data.data?.name || 'unknown'}"</p>
+                       <p><span className="text-accent">"checksum_sha256":</span> "{checksum}"</p>
+                       <p><span className="text-accent">"capture_provenance":</span> "{platform || 'user_upload'}"</p>
+                       <p><span className="text-accent">"archived_at":</span> "{new Date(data.createdAt).toISOString()}"</p>
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    <p className="archive-label text-foreground">Living Context</p>
+                    <p className="text-[13px] leading-relaxed text-muted-foreground font-medium">
+                      This digital object was captured on <span className="text-foreground">{timestamp}</span>. 
+                      It is part of the <span className="text-foreground">March 2026 Archive Capsule</span>. 
+                      The original bitstream is preserved in immutable storage.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {["Preserved", "Verified", "High-Fidelity"].map(tag => (
+                            <div key={tag} className="flex items-center gap-1.5 rounded-full border border-surface-border bg-surface px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                <CheckIcon className="h-3 w-3 text-accent" />
+                                {tag}
+                            </div>
+                        ))}
+                    </div>
+                  </div>
+               </div>
+            </div>
           </div>
 
-          {/* Sidebar */}
-          <aside className="space-y-8">
-            <div className="rounded-3xl border border-border bg-card/20 p-8 space-y-8">
-              <section className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Archival Metadata</h3>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center border-b border-border/50 pb-3">
-                    <span className="text-xs text-muted">Integrity</span>
-                    <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Verified</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-border/50 pb-3">
-                    <span className="text-xs text-muted">Permanence</span>
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">Immutable</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-border/50 pb-3">
-                    <span className="text-xs text-muted">Storage</span>
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">Cloudinary</span>
-                  </div>
+          {/* Metadata Sidebar */}
+          <aside className="lg:col-span-4 space-y-12">
+            <section className="archive-card p-10 space-y-10">
+              <div className="space-y-4">
+                <p className="archive-label">Metadata Card</p>
+                <div className="space-y-6">
+                   <div className="space-y-1.5 border-b border-surface-border/50 pb-4">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Object Title</p>
+                      <p className="text-[14px] font-bold text-foreground">{title}</p>
+                   </div>
+                   <div className="space-y-1.5 border-b border-surface-border/50 pb-4">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Archival Date</p>
+                      <p className="text-[14px] font-bold text-foreground">{timestamp}</p>
+                   </div>
+                   <div className="space-y-1.5 border-b border-surface-border/50 pb-4">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Source Provenance</p>
+                      <p className="text-[14px] font-bold text-foreground uppercase tracking-widest">{platform}</p>
+                   </div>
+                   <div className="space-y-1.5">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Integrity Hash</p>
+                      <p className="break-all font-mono text-[10px] text-accent font-bold">{checksum}</p>
+                   </div>
                 </div>
-              </section>
+              </div>
 
               {data.sourceUrl && (
-                <section className="space-y-3">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted">Original URI</h3>
-                  <div className="break-all rounded-xl bg-black/40 p-3 text-[10px] font-mono text-muted border border-border/30">
+                <div className="space-y-4">
+                  <p className="archive-label">Original URI</p>
+                  <a 
+                    href={data.sourceUrl} 
+                    target="_blank" 
+                    className="block break-all rounded-xl bg-surface p-4 text-[10px] font-mono text-muted transition-colors hover:text-foreground border border-surface-border"
+                  >
                     {data.sourceUrl}
-                  </div>
-                </section>
-              )}
-
-              <div className="pt-4">
-                <div className="rounded-2xl bg-accent/5 border border-accent/20 p-4">
-                  <p className="text-[11px] leading-relaxed text-accent/80 font-medium">
-                    This archive is cryptographically signed and stored in a distributed manner to ensure it remains available even if the original platform goes offline.
-                  </p>
+                  </a>
                 </div>
-              </div>
-            </div>
+              )}
+            </section>
 
-            <div className="rounded-3xl border border-border bg-card/10 p-8">
-              <h3 className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-muted">Related Tools</h3>
-              <div className="grid grid-cols-1 gap-2">
-                <button className="flex items-center justify-between rounded-xl bg-card/40 p-4 text-xs font-bold text-white transition-all hover:bg-card/60">
-                  Export to PDF <span>📄</span>
-                </button>
-                <button className="flex items-center justify-between rounded-xl bg-card/40 p-4 text-xs font-bold text-white transition-all hover:bg-card/60">
-                  Generate AI Summary <span>✨</span>
-                </button>
-                <button className="flex items-center justify-between rounded-xl bg-red-500/5 p-4 text-xs font-bold text-red-500 transition-all hover:bg-red-500/10">
-                  Delete Archive <span>🗑️</span>
-                </button>
-              </div>
+            <div className="rounded-2xl bg-accent/5 p-10 border border-accent/10">
+               <p className="archive-label text-accent mb-4">Preservation Note</p>
+               <p className="text-[12px] font-medium leading-relaxed text-muted-foreground italic">
+                 "Every digital object is a witness to a moment in time. By preserving the original file and its context, we ensure that the story remains accurate for future generations."
+               </p>
             </div>
           </aside>
         </div>

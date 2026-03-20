@@ -20,13 +20,13 @@ export async function GET(
   const oid = new ObjectId(id);
 
   // Check new records collection first
-  const record = await (await records()).findOne({ _id: oid, userId });
+  const record = await (await records()).findOne({ _id: oid as any, userId });
   if (record) {
     return NextResponse.json({ type: "record", data: record });
   }
 
   // Fallback to legacy archives collection
-  const archive = await (await archives()).findOne({ _id: oid, userId });
+  const archive = await (await archives()).findOne({ _id: oid as any, userId });
   if (archive) {
     return NextResponse.json({ type: "archive", data: archive });
   }
