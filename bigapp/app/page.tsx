@@ -30,9 +30,9 @@ export default function Home() {
       {/* ── Hero ── */}
       <section className="relative flex min-h-[85vh] flex-col items-center justify-center px-6 text-center">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_50%,rgba(74,93,78,0.05),transparent_70%)]" />
-        
+
         <p className="archive-label mb-8 animate-fade-in">Preservation for the next century</p>
-        
+
         <h1 className="mb-8 font-serif text-6xl leading-[1.1] tracking-tight text-foreground sm:text-8xl md:max-w-4xl">
           Preserve today for the world of 2075.
         </h1>
@@ -43,7 +43,7 @@ export default function Home() {
 
         <div className="flex flex-col gap-4 sm:flex-row min-h-[60px] items-center">
           {!isLoaded ? (
-             <div className="h-12 w-48 animate-pulse rounded-full bg-surface-border" />
+            <div className="h-12 w-48 animate-pulse rounded-full bg-surface-border" />
           ) : isSignedIn ? (
             <Link href="/dashboard" className="archive-button">
               Enter Your Vault
@@ -99,28 +99,133 @@ export default function Home() {
                 ))}
               </ul>
             </div>
-            
+
             {/* Visual Mockup Placeholder */}
             <div className="relative aspect-square rounded-2xl border border-surface-border bg-background p-8 shadow-inner md:p-12">
-               <div className="space-y-8">
-                  <div className="flex items-center justify-between border-b border-surface-border pb-4">
-                    <span className="archive-label text-accent">Archive Status: Healthy</span>
-                    <span className="archive-label">SHA-256 Verified</span>
+              <div className="space-y-8">
+                <div className="flex items-center justify-between border-b border-surface-border pb-4">
+                  <span className="archive-label text-accent">Archive Status: Healthy</span>
+                  <span className="archive-label">SHA-256 Verified</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Chart 1 */}
+                  <div className="group aspect-[3/4] rounded-lg bg-surface relative overflow-hidden">
+                    {/* soft gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/40 to-transparent" />
+
+                    {/* label */}
+                    <span className="absolute top-3 left-3 text-xs text-muted-foreground">
+                      Archive Growth
+                    </span>
+
+                    <svg className="absolute inset-0 w-full h-full [shape-rendering:geometricPrecision]">
+                      {/* subtle grid */}
+                      {[...Array(5)].map((_, i) => (
+                        <line
+                          key={i}
+                          x1="0"
+                          y1={i * 40 + 20}
+                          x2="100%"
+                          y2={i * 40 + 20}
+                          className="stroke-muted-foreground/10"
+                          strokeWidth="0.5"
+                        />
+                      ))}
+
+                      {/* area fill */}
+                      <defs>
+                        <linearGradient id="fade1" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="rgb(156 163 175)" stopOpacity="0.25" />
+                          <stop offset="100%" stopColor="rgb(156 163 175)" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+
+                      <path
+                        d="M0 150 
+           C 40 130, 80 95, 120 110 
+           S 200 60, 240 75 
+           S 320 50, 400 65 
+           L400 200 L0 200 Z"
+                        fill="url(#fade1)"
+                      />
+
+                      {/* main line */}
+                      <path
+                        d="M0 150 
+           C 40 130, 80 95, 120 110 
+           S 200 60, 240 75 
+           S 320 50, 400 65"
+                        className="
+          stroke-muted-foreground/70
+          stroke-[1.5]
+          fill-none
+          transition-all
+          duration-500
+          group-hover:stroke-muted-foreground
+        "
+                      />
+
+                      {/* endpoint */}
+                      <circle cx="400" cy="65" r="2" className="fill-muted-foreground/80" />
+                    </svg>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="aspect-[3/4] rounded-lg bg-surface animate-pulse" />
-                    <div className="aspect-[3/4] rounded-lg bg-surface animate-pulse delay-75" />
+
+                  {/* Chart 2 */}
+                  <div className="group aspect-[3/4] rounded-lg bg-surface relative overflow-hidden">
+                    {/* soft gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/40 to-transparent" />
+
+                    {/* label */}
+                    <span className="absolute top-3 left-3 text-xs text-muted-foreground">
+                      Integrity Trend
+                    </span>
+
+                    <svg className="absolute inset-0 w-full h-full [shape-rendering:geometricPrecision]">
+                      {/* subtle grid */}
+                      {[...Array(5)].map((_, i) => (
+                        <line
+                          key={i}
+                          x1="0"
+                          y1={i * 40 + 20}
+                          x2="100%"
+                          y2={i * 40 + 20}
+                          className="stroke-muted-foreground/10"
+                          strokeWidth="0.5"
+                        />
+                      ))}
+
+                      {/* dashed line for variation */}
+                      <path
+                        d="M0 160 
+           C 60 140, 120 100, 180 110 
+           S 260 80, 320 90 
+           S 360 70, 400 80"
+                        className="
+          stroke-muted-foreground/60
+          stroke-[1.5]
+          fill-none
+          [stroke-dasharray:4_4]
+          transition-all
+          duration-500
+          group-hover:stroke-muted-foreground
+        "
+                      />
+
+                      {/* endpoint */}
+                      <circle cx="400" cy="80" r="2" className="fill-muted-foreground/70" />
+                    </svg>
                   </div>
-                  <div className="space-y-2">
-                    <div className="h-2 w-full rounded bg-surface" />
-                    <div className="h-2 w-2/3 rounded bg-surface" />
-                  </div>
-               </div>
-               <div className="absolute inset-x-0 bottom-0 flex h-1/2 items-center justify-center bg-gradient-to-t from-background to-transparent px-8 text-center">
-                  <p className="font-serif text-lg text-muted-foreground">
-                    A calm interface for serious preservation.
-                  </p>
-               </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-2 w-full rounded bg-surface" />
+                  <div className="h-2 w-2/3 rounded bg-surface" />
+                </div>
+              </div>
+              <div className="absolute inset-x-0 bottom-0 flex h-1/2 items-center justify-center bg-gradient-to-t from-background to-transparent px-8 text-center">
+                <p className="font-serif text-lg text-muted-foreground">
+                  A calm interface for serious preservation.
+                </p>
+              </div>
             </div>
           </div>
         </div>
